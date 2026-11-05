@@ -65,7 +65,6 @@ await depth.load();
 const codec = new Codec(device, { quant: "q8", prequant: pre(`${S}/codec_q8.bin`, `${S}/manifest_codec_q8.json`) });
 await codec.load();
 const chat = new Chat(lm, tok);
-chat.useMemory = false;
 chat.spoken = true;
 const opts = (log) => ({ depth, codec, greedy: true, maxFrames: 160, maxText: 120, onAudio: () => { if (!log.first) log.first = performance.now(); } });
 const second = "Say that again in five words or fewer.";

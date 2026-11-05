@@ -12,7 +12,8 @@ Writes site_test.json and screenshots into --out. On SwiftShader each answer tak
     python tools/site_test.py --smoke [--short] [--overlay public]
 
 runs only the app's smoke test instead (Settings → Smoke test): every workflow once, checked and measured, and
-records its results and the header's tags. --short uses its smaller inputs (?smoke=short), for SwiftShader.
+records its results and the header's tags; then a document goes into the chat and a question only it answers is
+asked (retrieval), and New chat must drop the document. --short uses its smaller inputs (?smoke=short), for SwiftShader.
 --overlay DIR serves the page's own files (index.html, *.js, ...) from DIR instead of the site, so a change can be
 checked against the deployed weights before it is deployed.
 """
@@ -173,6 +174,20 @@ def smoke(page, base, args, res, wait, save):
         page.wait_for_timeout(300)
         res["notice"] = page.evaluate("() => [...document.querySelectorAll('.msg.notice')].map((n) => n.textContent).slice(-1)[0] || ''")
         res["input_enabled"] = page.evaluate("() => !document.getElementById('input').disabled")
+        # retrieval for this chat: a document with one fact among filler, then a question only it answers
+        filler = " ".join(f"Note {i}: the weekly planning meeting covers budgets, hiring and the office move." for i in range(60))
+        doc = filler[:2000] + " The Toaster Club team offsite this year is on the island of Madeira, in June. " + filler[2000:]
+        page.set_input_files("#photo", files=[{"name": "offsite.txt", "mimeType": "text/plain", "buffer": doc.encode()}])
+        page.wait_for_timeout(800)
+        res["doc_chip"] = page.evaluate("() => [...document.querySelectorAll('.att.doc')].map((d) => d.textContent)")
+        page.fill("#input", "Where is the team offsite this year? Answer in one short sentence.")
+        page.click("#send")
+        res["rag_answer_s"] = wait(page, "document.querySelectorAll('.msg.assistant .stats').length >= 1 || !!document.querySelector('.msg .err')", args.minutes)
+        res["rag_answer"] = page.inner_text(".msg.assistant:last-child")[:600]
+        res["rag_ok"] = "madeira" in res["rag_answer"].lower()
+        page.click("#newChatTop")
+        page.wait_for_timeout(1500)
+        res["docs_after_new_chat"] = page.evaluate("() => document.querySelectorAll('.att.doc').length")
         page.screenshot(path=os.path.join(args.out, "app.png"))
     except TimeoutError as e:
         res["app_timeout"] = str(e)[:160]

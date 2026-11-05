@@ -7,7 +7,7 @@
 //   Speech in      that spoken reply heard back by the speech encoder and the model's own speech recognition
 //   Push to talk   the same speech streamed in at the pace of someone talking, with a camera picture, as in Live:
 //                  the time from letting go to the answer's first sound
-// It runs with the default instructions and no memory, so results compare across devices, and leaves the chat
+// It runs with the default instructions, so results compare across devices, and leaves the chat
 // for the app to restart. Nothing leaves the device: the results are only shown, copied or saved by the user.
 import { SYSTEM, turnUser } from "./engine/chat.js";
 import { preprocess } from "./engine/vision.js";
@@ -101,12 +101,12 @@ export async function runSmoke(app, opts = {}) {
     show(row);
   };
   const status = (t) => opts.onStatus?.(t);
-  const saved = { system: chat.system, useMemory: chat.useMemory, spoken: chat.spoken };
+  const saved = { system: chat.system, spoken: chat.spoken };
   const t00 = now();
   const pic = picture();
   let spoken = null;
   try {
-    chat.system = SYSTEM; chat.useMemory = false; chat.spoken = false;
+    chat.system = SYSTEM; chat.spoken = false;
 
     await step("load", "Models", async (row) => {
       const got = [`language model ${ms(app.load?.ms ?? NaN)}${app.load?.local ? " from this device" : ""}`];

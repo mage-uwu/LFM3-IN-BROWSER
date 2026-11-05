@@ -641,7 +641,7 @@ export class LFM3 {
     return ids;
   }
 
-  // Copies of the state (System 3: a curated experience prefilled once, every session starts from a copy)
+  // Copies of the state: the system prompt is prefilled once, and every new chat starts from a copy
   async snapshot() {
     const d = this.device, enc = d.createCommandEncoder();
     const snap = { pos: this.pos, layers: [] };

@@ -98,19 +98,38 @@ const { reply, stats } = await chat.send("Hello!", { onText: (t) => render(t) })
 | Member | What it does |
 | --- | --- |
 | `chat.system` | The base system prompt (default `SYSTEM`, "You are a helpful personal assistant."). It takes effect at `newChat()`. |
-| `chat.useMemory` | Whether `newChat()` adds the memory notes (default true). |
 | `chat.spoken` | Voice mode: `newChat()` ends the system prompt with "Respond with interleaved text and audio.". |
-| `await newChat()` | Starts a conversation: the system prompt (+ memory) is prefilled once and snapshotted. |
+| `await newChat()` | Starts a conversation: the system prompt is prefilled once and snapshotted. |
 | `await send(text, { onText, media, maxNew, shouldStop })` | One turn with a text answer. `stats` gives the prompt tokens, the prefill and decode speed, and the position. |
 | `await speak(text, { depth, codec, onText, onAudio, media, shouldStop })` | One turn with a spoken answer. `onAudio(Float32Array)` receives 24 kHz audio about every 320 ms. Returns `{ reply, frames, seconds, stats }`. |
 | `await openTurn(picture)`, `feedAudio(emb, rows)`, `closeTurn(text, opts)` | A spoken turn streamed in while the user talks; see below. |
 | `await asr(emb, rows, language)` | Speech recognition by the model itself ("Perform ASR in <language>."). It resets the context, so run it between chats. |
-| `await consolidate(onStep, { messages, transcribe })` | The memory's write path: reads the user's messages, transcribing spoken ones with `transcribe(message)`, stores what is worth keeping, then calls `newChat()`. |
-| `chat.experience` | The memory (`Experience`): `facts`, `preferences`, `lessons`, `save()`, `systemPrompt(base)`. |
 | `messages` | The turns of the conversation: `{ role, content, media, audio }`. |
 
 `media` is one item or a list of `{ token: "<|image|>" | "<|audio|>", rows }`. Their rows must already be in the
 buffer given to `model.setExternalEmbeddings()`, back to back in the same order.
+
+## `rag.js`: retrieval for one chat
+
+Standard RAG, kept separate for each chat. Make one index per chat, add the chat's documents (and, if you like,
+turns that no longer fit in the context), and put the best passages in front of each question:
+
+```js
+import { ChatIndex, withContext } from "./engine/rag.js";
+const index = new ChatIndex();                    // one per chat; drop it when the chat ends
+index.add(await file.text(), file.name);          // cut into ~120-word passages that overlap by 30
+const hits = index.search(question, 3);           // BM25: [{ score, text, source }], best first
+const { reply } = await chat.send(withContext(question, hits));
+```
+
+| Member | What it does |
+| --- | --- |
+| `new ChatIndex({ words, overlap })` | An empty index. Passages are `words` long (120) and overlap by `overlap` (30). |
+| `add(text, source)` | Indexes a text under a source name; returns the number of passages. |
+| `search(query, k)` | The `k` best passages by BM25 (k1 1.2, b 0.75). Passages that share no term with the query are left out. |
+| `remove(source)`, `clear()` | Removes one source's passages, or all of them. |
+| `size`, `sources` | The passage count, and a `Map` of source name to passage count. |
+| `withContext(question, hits)` | The question with its passages, numbered and labelled with their source. |
 
 ## `vision.js`: photos
 
@@ -184,7 +203,7 @@ mic.stop();                                    // releases the microphone
 mel.push(rs.finish()); mel.finish();
 const o = await audio.encode(mel.layout(), mel.frames);
 await chat.feedAudio(o.emb, o.rows);
-await chat.closeTurn("", { depth, codec, onAudio: play, audio: mel.x.slice(0, mel.n) });   // audio: kept for the memory
+await chat.closeTurn("", { depth, codec, onAudio: play, audio: mel.x.slice(0, mel.n) });   // audio: kept in chat.messages
 ```
 
 The model ends up in exactly the state that `speak()` with the whole clip would give.

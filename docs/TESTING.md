@@ -33,7 +33,6 @@ Each test has a PyTorch reference script that writes into `work/`, and a Node te
 | Speech encoder | `python3 tools/audio_ref.py --out work/audio` and `audio_export.py` | `node tools/node_audio_test.mjs --dir work/audio --src …` | `result_audio.json` |
 | Spoken replies: depth decoder, codec, the interleaved loop; our speech transcribed back | `python3 tools/speech_ref.py --out work/speech` and `speech_export.py` | `node tools/node_speech_test.mjs --dir work/speech --audio work/audio --src …` | `result_speech.json` |
 | Push to talk: a streamed turn against the whole clip | the speech and audio exports | `node tools/node_ptt_test.mjs --clip work/voice16k.f32 --audio work/audio --speech work/speech --src …` | `result_ptt.json` |
-| Memory from speech: spoken turns heard, learned and recalled | the speech and audio exports | `node tools/node_memory_voice_test.mjs --audio work/audio --speech work/speech --src …` | `result_memory_voice.json` |
 | Tokenizer and chat template | `python3 tools/tok_ref.py --out work/tok_ref.json` | `node tools/tok_test.mjs work/tok_ref.json public` | (printed) |
 
 The push-to-talk test needs a 16 kHz clip as raw float32 (`work/voice16k.f32`). This writes the LibriSpeech

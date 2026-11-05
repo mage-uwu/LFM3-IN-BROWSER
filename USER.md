@@ -30,12 +30,11 @@ answer out loud, entirely on your own device. It is a reference implementation b
 - **Live:** tap the **camera** button. The camera fills the screen; hold the bubble and talk about what it sees.
   The picture from when you start talking goes in with your words. Use the buttons at the bottom to turn the
   camera off, switch cameras, or end Live.
-- **Photos:** tap **+** to attach a picture, then ask about it.
+- **Photos and documents:** tap **+** to attach a picture or a text file (.txt, .md, .csv, .json, .html and
+  similar), then ask about it. A document is cut into passages, and each typed message gets the passages that match
+  it best. Documents belong to the chat they were added to: **New chat** clears them. Tap **×** on a document's chip
+  to remove it.
 - **Spoken answers to typed messages:** the **speaker** button in the top bar.
-- **Memory** (the **lightbulb**):
-  - When a chat ends (New chat, or the next time you open the site), the assistant reads what you said and keeps
-    useful facts and standing instructions. Things you said out loud count too.
-  - In the sheet you can see every note, remove any of them, turn memory off, or **Forget everything**.
 - **Instructions** (the **sliders**): give it your own system prompt, for example "Always answer in French." This
   starts a new chat.
 - **Smoke test** (also in the **sliders** sheet): **Run the smoke test** tries every workflow once on your device
@@ -53,10 +52,10 @@ answer out loud, entirely on your own device. It is a reference implementation b
 ## Privacy
 
 Everything runs on your device: what you type, say and show never leaves it. The site sends you the app and the
-model's files and receives nothing back. The model, your memory notes, your instructions and an unfinished
-conversation are kept in this browser's storage on this device. Clearing the site's data in your browser settings
-removes all of them. **Remove the saved copy** on the setup card deletes the model's copy, and **Forget everything**
-in Memory deletes your notes.
+model's files and receives nothing back. The model's copy, your instructions and the last smoke test's results are
+kept in this browser's storage on this device. Conversations and documents are not stored: they last only while
+the chat is open. Clearing the site's data in your browser settings removes everything, and **Remove the saved
+copy** on the setup card deletes the model's copy.
 
 ## If something goes wrong
 

@@ -53,13 +53,14 @@ Run these from the repository root. They need Node 18+ and Python 3.10+.
 
 ```
 public/                  the site (deploy this folder)
-  index.html, app.js       the full app: chat, push to talk, Live, photos, spoken replies, memory, settings
+  index.html, app.js       the full app: chat, push to talk, Live, photos, documents, spoken replies, settings
   smoke.js                 Settings' smoke test: every workflow once, checked and measured (window.LFM3_SMOKE)
   engine/                  the engine: plain ES modules, WebGPU + WGSL, no dependencies
     index.js                 one import for everything below
     loader.js                the happy path: loadLFM3(), loadVision(), loadAudio(), loadSpeech(); device cache
     lfm3.js, kernels.js      the language model and the shared WGSL kernels
-    chat.js, tokenizer.js    chat template, memory (System 3), spoken turns, ASR; the tokenizer
+    chat.js, tokenizer.js    chat template, spoken turns, ASR; the tokenizer
+    rag.js                   retrieval for one chat: its documents and older turns, BM25
     vision.js                image preprocessing + encoder;   audio.js  log-mel + speech encoder (+ streaming)
     speech.js                spoken replies: depth decoder + voice codec;   listen.js  microphone + resampler
     pngbytes.js, store.js    weight part containers; IndexedDB
@@ -119,7 +120,8 @@ results/                 measured results quoted in the README
 | How a page loads the model | `public/engine/loader.js` |
 | A shader or the language model | `public/engine/kernels.js`, `public/engine/lfm3.js`; check with `tools/node_bench.mjs` |
 | Photos, speech in, speech out | `vision.js`, `audio.js`, `speech.js`; their `tools/node_*_test.mjs` |
-| The chat format, memory, spoken turns | `public/engine/chat.js` |
+| The chat format, spoken turns | `public/engine/chat.js` |
+| Retrieval (documents, older turns) | `public/engine/rag.js`, `addDocument` and `contextFull` in `public/app.js` |
 | New or re-quantized weights | `tools/*_export.py`, `tools/png_chunks.py`, `tools/pack_weights.py` |
 | Icons and the share card | `tools/make_icons.py` |
 

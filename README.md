@@ -33,9 +33,9 @@ affiliated with Liquid AI.
   talking goes in with your words.
 - **Photos.** Ask about a picture you attach.
 - **Spoken replies.** Answers come back as speech and text together, in the model's own voice.
-- **Memory.** When a chat ends, the assistant reads what you said, spoken or typed, and keeps facts and standing
-  instructions on the device. The next chat starts already knowing them. Nothing is retrieved per message and the
-  weights never change.
+- **Documents (RAG, per chat).** Attach text files with **+**. Each typed message is matched against them, and
+  against the chat's own older turns once they no longer fit in the model's context. The best passages go in
+  with the message. Every chat has its own index, which a new chat empties; nothing carries over between chats.
 - **Your own instructions.** Settings takes an optional system prompt.
 - **Smoke test.** Settings runs every workflow once on your device and measures it. That covers text (time to
   the first token, prefill and decode tokens per second), a photo, a spoken reply, speech recognition, and a
@@ -126,7 +126,6 @@ through Dawn, Chrome's WebGPU implementation, in Node.js. The raw numbers are in
 | Speech encoder | The log-mel front end matches the reference to 0.00013, and a LibriSpeech clip transcribes word for word. 5.9 s of speech encodes in 30 ms. |
 | Spoken replies | The text matches a deterministic PyTorch run. The 8-bit codec reaches 33.6 dB SNR against PyTorch's audio. 46.5 speech frames per second is 3.7× real time, and the model transcribes our speech back exactly. |
 | Push to talk | A turn streamed in while "speaking" gives exactly the same answer as the whole clip: 24 of 24 text tokens and 89 of 89 speech frames, and the follow-up turn too. The first audio comes 164 ms after letting go, against 389 ms without streaming. |
-| Memory from speech | The model heard its own spoken "My sister's name is Rosa and I live in Lisbon." word for word and learned both facts. A new chat answered "Your sister's name is Rosa and you live in Lisbon." |
 
 On a phone, speed depends on its GPU, and the app shows the real numbers under every reply.
 

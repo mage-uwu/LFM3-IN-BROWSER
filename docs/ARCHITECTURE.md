@@ -18,12 +18,13 @@ speech ─► audio.js (log-mel,   │                         └─► hidden 
 | --- | --- |
 | `loader.js` | The happy path: one call loads a model through the device's IndexedDB copy (`loadLFM3`, `loadVision`, `loadAudio`, `loadSpeech`). |
 | `lfm3.js`, `kernels.js` | The language model; the shared WGSL kernels (GEMV/GEMM per weight format, norms, attention, RoPE, arg-max, on-GPU quantization). |
-| `chat.js`, `tokenizer.js` | The chat template, conversations, spoken turns, streamed push to talk, speech recognition and the memory; the tokenizer. |
+| `chat.js`, `tokenizer.js` | The chat template, conversations, spoken turns, streamed push to talk and speech recognition; the tokenizer. |
 | `vision.js` | Image preprocessing, the image encoder and its projector. |
 | `audio.js` | Log-mel (whole clips, and streamed while recording), the speech encoder and its projector. |
 | `speech.js` | Spoken replies: the depth decoder and the voice codec decoder. |
 | `listen.js` | Microphone capture, and the resampler to 16 kHz. |
 | `pngbytes.js`, `store.js` | Weight part containers; IndexedDB storage. |
+| `rag.js` | Retrieval for one chat: its documents and older turns, ranked with BM25. |
 | `index.js` | Re-exports the public API of all of the above. |
 
 Each module imports only its siblings, so a page can take just the ones it needs.
@@ -141,24 +142,20 @@ than the earpiece. When the device makes speech slower than real time, the playe
 before continuing, doubling the wait each time up to 4 s. The answer then pauses between phrases instead of
 stuttering.
 
-## Memory (`chat.js`: `Experience`, `consolidate`, `asr`)
+## Retrieval per chat (`rag.js`)
 
-- **What it stores:** short notes about the user, as facts (`key = value`), standing instructions, and lessons.
-  The notes are kept in `localStorage`.
-- **How it is used:** the notes are rendered into the system prompt, which is prefilled once and snapshotted.
-  Nothing is retrieved per message and the weights never change.
-- **When it learns:**
-  - a new chat starts: the finished one is read first;
-  - the next visit: for a conversation that ended with the tab, kept in IndexedDB as it went;
-  - "Learn from this chat" is tapped.
-- **How it learns:**
-  1. Each spoken turn keeps its 16 kHz audio. It is transcribed first by the model's own speech recognition, with
-     the model card's system prompt "Perform ASR in <language>.".
-  2. Then, for every user message, the model proposes notes.
-  3. A gate keeps a fact only if its value appears in what the user said. A new value for a known key replaces the
-     old one and keeps it in a history.
-- **Your own instructions:** an optional system prompt (Settings) replaces the default base prompt. The memory
-  comes after it, and in voice mode the speech instruction always goes last.
+Retrieval-augmented generation, kept separate for each chat:
+
+- **What is searched:** the documents attached to the chat, cut into passages of about 120 words that overlap by 30,
+  and the chat's own turns once they no longer fit in the model's context.
+- **How:** BM25 keyword ranking, in JavaScript, with no extra model. A typed message gets its 3 best passages,
+  labelled with their source, ahead of the question in the user's turn. The turn is kept in the chat as typed.
+- **Sequestered:** each chat has its own index in memory. **New chat** (and turning spoken replies on or off)
+  replaces it with an empty one, and nothing is stored on the device, so no chat can see another's documents.
+- **Spoken turns** are streamed into the model while the user talks, before any text exists, so they are not
+  searched. Their answers are indexed with the rest of the chat when the context fills.
+- **Your own instructions:** an optional system prompt (Settings) replaces the default base prompt; in voice mode
+  the speech instruction always goes last.
 
 ## The app (`app.js`, `index.html`)
 
@@ -169,10 +166,10 @@ The app is one page. Its parts:
 - a composer whose round button is push to talk;
 - a soap-bubble character in voice mode, whose mouth follows the output audio through an `AnalyserNode`;
 - Live, a full-screen camera mode;
-- the memory and settings sheets;
+- the settings sheet;
 - the smoke test in Settings (`smoke.js`).
 
-The smoke test runs each workflow once with fixed inputs, under the default instructions and with no memory, so
+The smoke test runs each workflow once with fixed inputs, under the default instructions, so
 its numbers compare across devices:
 
 - text, with a known answer, then a 587-token prefill and 128 decoded tokens with no stop;

@@ -239,10 +239,6 @@ def main():
             except TimeoutError:  # keep what there is (a CPU-emulated GPU can be very slow)
                 res["reply_timeout_min"] = args.reply_min
             res["reply"] = page.inner_text(".msg.assistant:last-child")
-            page.click("#memBtn")
-            page.wait_for_timeout(500)
-            page.screenshot(path=os.path.join(args.out, "ui_memory.png"))
-            page.click("#memClose")
             page.screenshot(path=os.path.join(args.out, "ui_chat.png"))
         browser.close()
     with open(os.path.join(args.out, "ui_test.json"), "w") as f:

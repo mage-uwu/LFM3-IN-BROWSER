@@ -98,7 +98,6 @@ for (const q of arg("quants", "q8,q4g64").split(",")) {
   wav(`${outDir}/codec_${q}_of_reference_frames.wav`, ours);
   // 3. the whole interleaved loop, deterministic
   const chat = new Chat(lm, tok);
-  chat.useMemory = false;
   chat.spoken = true;
   lm.reset();
   const promptText = systemBlock(ref.system) + turnUser(ref.question) + "<|mixed_start|>";
