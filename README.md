@@ -129,7 +129,7 @@ through Dawn, Chrome's WebGPU implementation, in Node.js. The raw numbers are in
 | Image encoder, 8-bit | Its description of a test picture matches PyTorch for all 48 of 48 tokens. 768 patches encode in 0.4 s. |
 | Speech encoder | The log-mel front end matches the reference to 0.00013, and a LibriSpeech clip transcribes word for word. 5.9 s of speech encodes in 30 ms. |
 | Spoken replies | The text matches a deterministic PyTorch run. The 8-bit codec reaches 33.6 dB SNR against PyTorch's audio. 46.5 speech frames per second is 3.7× real time, and the model transcribes our speech back exactly. |
-| d1-Omni-2B (Decide), 4-bit | On the release's own test cases (a support ticket, JSON, a picture, a recording), every answer matches its runner and every probability is within 0.043. GPTQ was worse here (0.085, and it flipped a close call), so d1 ships plain 4-bit rounding. 0.25 to 1 s per case on the A40. |
+| d1-Omni-2B (Decide), 4-bit | On the release's own test cases (a support ticket, JSON, a picture, a recording), every answer matches its runner and every probability is within 0.043. GPTQ was worse here (0.085, and it flipped a close call), so d1 ships plain 4-bit rounding. 0.25 to 1 s per case on the A40. The page itself, in Chromium on a 390 x 844 screen, gives the same answers on all five of its examples ([results/decide](results/decide)). |
 | Push to talk | A turn streamed in while "speaking" gives exactly the same answer as the whole clip: 24 of 24 text tokens and 89 of 89 speech frames, and the follow-up turn too. The first audio comes 164 ms after letting go, against 389 ms without streaming. |
 
 On a phone, speed depends on its GPU, and the app shows the real numbers under every reply.

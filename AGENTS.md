@@ -25,7 +25,7 @@ Run these from the repository root. They need Node 18+ and Python 3.10+.
    npm ci
    ```
 
-2. Check every weight part against its recorded sha256 (77 parts, about 1.3 GB):
+2. Check every weight part against its recorded sha256 (141 parts, about 2.4 GB: the chat's sets and Decide's):
 
    ```bash
    python3 tools/pack_weights.py --verify

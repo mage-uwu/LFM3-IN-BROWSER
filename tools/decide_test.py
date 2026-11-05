@@ -64,7 +64,9 @@ def main():
             info = page.evaluate("""async () => { const a = await navigator.gpu?.requestAdapter();
                 return a ? { vendor: a.info?.vendor, arch: a.info?.architecture, desc: a.info?.description, fallback: a.isFallbackAdapter } : null; }""")
             if info and (mode == "swiftshader" or not info.get("fallback")):
-                res["adapter"], res["mode"] = info, mode
+                # the adapter Chromium gave, whatever the flags asked for
+                res["adapter"] = info
+                res["mode"] = "swiftshader" if "swiftshader" in (info.get("arch") or "") else "gpu"
                 break
             print("no hardware adapter with", mode, info, flush=True)
             browser.close()

@@ -1,0 +1,269 @@
+{
+ "base": "https://lfm.toasterclub.com",
+ "examples": [
+  {
+   "label": "Support ticket",
+   "s": 644.34,
+   "msg": "192 tokens in 643366 ms \u00b7 1 pass, no text generated",
+   "answers": {
+    "refund": {
+     "type": "noul",
+     "noul": 0.9427615970856397
+    },
+    "team": {
+     "type": "choice",
+     "choice": "billing",
+     "confidence": 0.5372137047274708,
+     "probabilities": {
+      "billing": 0.5372137047274708,
+      "shipping": 0.4460202198414088,
+      "technical": 0.01676607543112056
+     }
+    },
+    "topics": {
+     "type": "choice",
+     "choices": [
+      "billing",
+      "delivery"
+     ],
+     "probabilities": {
+      "billing": 0.8918918918918919,
+      "delivery": 0.8918918918918919,
+      "login": 0.00014612830561206702
+     }
+    },
+    "anger": {
+     "type": "score",
+     "score": 1,
+     "confidence": 0.7664965270207976,
+     "probabilities": {
+      "0": 0.17314691675289257,
+      "1": 0.7664965270207976,
+      "2": 0.060356556226309796
+     },
+     "legend": {
+      "0": "Calm",
+      "1": "Annoyed",
+      "2": "Angry"
+     }
+    }
+   },
+   "diff": {
+    "refund": 0.0017,
+    "team": 0.0186,
+    "topics": 0.0189,
+    "anger": 0.0427
+   },
+   "reference_answers": {
+    "refund": {
+     "type": "noul",
+     "noul": 0.9444634304719477
+    },
+    "team": {
+     "type": "choice",
+     "choice": "billing",
+     "confidence": 0.5186288003929288,
+     "probabilities": {
+      "billing": 0.5186288003929288,
+      "shipping": 0.4642111422954654,
+      "technical": 0.017160057311605692
+     }
+    },
+    "topics": {
+     "type": "choice",
+     "choices": [
+      "billing",
+      "delivery"
+     ],
+     "probabilities": {
+      "billing": 0.8729982401186394,
+      "delivery": 0.8918918918918919,
+      "login": 3.2360869688022113e-06
+     }
+    },
+    "anger": {
+     "type": "score",
+     "score": 1.0,
+     "confidence": 0.7973664328063331,
+     "probabilities": {
+      "0": 0.13042288686642348,
+      "1": 0.7973664328063331,
+      "2": 0.07221068032724333
+     },
+     "legend": {
+      "0": "Calm",
+      "1": "Annoyed",
+      "2": "Angry"
+     }
+    }
+   }
+  },
+  {
+   "label": "Order (JSON)",
+   "s": 316.69,
+   "msg": "95 tokens in 316645 ms \u00b7 1 pass, no text generated",
+   "answers": {
+    "late": {
+     "type": "noul",
+     "noul": 0.8997195658916256
+    },
+    "paid": {
+     "type": "noul",
+     "noul": 0.9288536805151273
+    }
+   },
+   "diff": {
+    "late": 0.0126,
+    "paid": 0.0032
+   },
+   "reference_answers": {
+    "late": {
+     "type": "noul",
+     "noul": 0.9122708911019195
+    },
+    "paid": {
+     "type": "noul",
+     "noul": 0.9320621063559157
+    }
+   }
+  },
+  {
+   "label": "Product review",
+   "s": 521.84,
+   "msg": "158 tokens in 521791 ms \u00b7 1 pass, no text generated",
+   "answers": {
+    "sentiment": {
+     "type": "score",
+     "score": 1,
+     "confidence": 0.5318855273257327,
+     "probabilities": {
+      "0": 0.03253895241462923,
+      "1": 0.5318855273257327,
+      "2": 0.4355755202596381
+     },
+     "legend": {
+      "0": "Negative",
+      "1": "Mixed",
+      "2": "Positive"
+     }
+    },
+    "mentions": {
+     "type": "choice",
+     "choices": [
+      "battery",
+      "screen",
+      "price"
+     ],
+     "probabilities": {
+      "battery": 0.8918918918918919,
+      "screen": 0.8918918918918919,
+      "price": 0.8531945039509624,
+      "shipping": 0.0018317088573426804,
+      "camera": 0.001211424369128057
+     }
+    },
+    "recommend": {
+     "type": "noul",
+     "noul": 0.9094264296160156
+    }
+   }
+  },
+  {
+   "label": "Photo (sample)",
+   "s": 1504.7,
+   "msg": "277 tokens in 912082 ms \u00b7 image encoded in 592564 ms \u00b7 1 pass, no text generated",
+   "answers": {
+    "red": {
+     "type": "noul",
+     "noul": 0.9433310914712358
+    },
+    "shape": {
+     "type": "choice",
+     "choice": "circle",
+     "confidence": 0.9764674207666951,
+     "probabilities": {
+      "circle": 0.9764674207666951,
+      "square": 0.01467411178753787,
+      "triangle": 0.008858467445766903
+     }
+    },
+    "people": {
+     "type": "noul",
+     "noul": 0.055401448640957675
+    }
+   },
+   "diff": {
+    "red": 0.0024,
+    "shape": 0.0004
+   },
+   "reference_answers": {
+    "red": {
+     "type": "noul",
+     "noul": 0.9409726617258235
+    },
+    "shape": {
+     "type": "choice",
+     "choice": "circle",
+     "confidence": 0.9767580039912659,
+     "probabilities": {
+      "circle": 0.9767580039912659,
+      "square": 0.014302489303374463,
+      "triangle": 0.00893950670535972
+     }
+    }
+   }
+  },
+  {
+   "label": "Recording (sample)",
+   "s": 420.52,
+   "msg": "115 tokens in 386916 ms \u00b7 audio encoded in 33563 ms \u00b7 1 pass, no text generated",
+   "answers": {
+    "speech": {
+     "type": "noul",
+     "noul": 0.08387779816270974
+    },
+    "kind": {
+     "type": "choice",
+     "choice": "tones",
+     "confidence": 0.8649011188494613,
+     "probabilities": {
+      "tones": 0.8649011188494613,
+      "speech": 0.01323871235698502,
+      "music": 0.029272742495767713,
+      "silence": 0.09258742629778588
+     }
+    }
+   },
+   "diff": {
+    "speech": 0.0167
+   },
+   "reference_answers": {
+    "beeps": {
+     "type": "number",
+     "number": 3.0,
+     "interval": [
+      3.0,
+      4.0
+     ],
+     "unit": null
+    },
+    "speech": {
+     "type": "noul",
+     "noul": 0.06721036340659145
+    }
+   }
+  }
+ ],
+ "adapter": {
+  "vendor": "google",
+  "arch": "swiftshader",
+  "desc": "",
+  "fallback": null
+ },
+ "mode": "swiftshader",
+ "load_s": 26.8,
+ "ready": "Ready in 27 s. A copy is saved on this device.",
+ "max_diff": 0.0427,
+ "console_errors": [],
+ "note": "Chromium found no hardware adapter on this pod and used SwiftShader (CPU); the timings are not a GPU's. The topics difference was recomputed after the run against the reference answer's calibrated probabilities (the run compared them with raw ones and printed 0.0885); the test now does this itself."
+}
