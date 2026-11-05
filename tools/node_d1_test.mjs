@@ -3,7 +3,7 @@
 // cases through engine/d1.js (the prompt, the packing, d1's "set" attention in LFM3.decide, the readout and the
 // calibration), compared question by question with the reference's probabilities.
 //   node tools/node_d1_test.mjs --ref work/d1_ref.json --src URL-of-model.safetensors --vision work/d1vision
-//        --audio work/d1audio --media work/d1media [--lm work/d1lm.bin --lm-manifest work/d1gptq/manifest.json]
+//        --audio work/d1audio [--audio-quant q4g64] --media work/d1media [--lm work/d1lm.bin --lm-manifest work/d1gptq/manifest.json]
 // --src converts the release's bf16 weights on the GPU (--quant q8, the default); --lm loads a prequantized export
 // (the GPTQ 4-bit the site serves) instead. --media holds circle.rgb (448x448 RGB) and beeps.f32 (16 kHz), the
 // reference's picture and clip, written by d1_ref.py's circle() and beeps().
@@ -48,7 +48,8 @@ await lm.load(() => {});
 const V = arg("vision"), A = arg("audio");
 const vision = V ? new Vision(device, { quant: "q8", prequant: pre(`${V}/q8.bin`, `${V}/manifest_q8.json`) }) : null;
 if (vision) await vision.load();
-const audio = A ? new Audio(device, { quant: "q8", prequant: pre(`${A}/q8.bin`, `${A}/manifest_q8.json`) }) : null;
+const AQ = arg("audio-quant", "q8");
+const audio = A ? new Audio(device, { quant: AQ, prequant: pre(`${A}/${AQ}.bin`, `${A}/manifest_${AQ}.json`) }) : null;
 if (audio) await audio.load();
 const d1 = new Decider(lm, tok, { lead: "<think></think>", calibration: ref.calibration, setSize: ref.config.d1_set_size || 16 });
 const M = arg("media", "work/d1media");

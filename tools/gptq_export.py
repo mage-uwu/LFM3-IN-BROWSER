@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0. Copyright 2026 Toaster Club LLC.
 """GPTQ 4-bit export of vanilla LFM3-Omni-2B's text backbone for the WebGPU engine (public/engine/lfm3.js, "q4g64").
 
-    python tools/gptq_export.py --out work/gptq
+    python tools/gptq_export.py --out work/gptq [--repo LiquidAI/d1-Omni-2B] [--rtn]
 
 Every matrix (feed-forward, conv projections, attention, and the tied embedding / output head) becomes 4-bit codes in
 groups of 64 along the input dimension with an f16 scale and an f16 minimum per group (4.5 bits per weight, about
@@ -174,6 +174,7 @@ def main():
     ap.add_argument("--eval", type=int, default=24, help="held-out windows of each kind")
     ap.add_argument("--seqlen", type=int, default=1024)
     ap.add_argument("--batch", type=int, default=8)
+    ap.add_argument("--rtn", action="store_true", help="plain round-to-nearest only: no calibration, GPTQ or perplexity")
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
     from safetensors import safe_open
@@ -206,11 +207,13 @@ def main():
     assert tied, "the engine stores one table for the embedding and the head"
 
     t0 = time.time()
-    calib = torch.cat([token_windows(tok, texts_chat(proc, "train_sft"), args.chat, args.seqlen, bos),
-                       token_windows(tok, texts_web(), args.web, args.seqlen, bos)])
-    held = torch.cat([token_windows(tok, texts_chat(proc, "test_sft"), args.eval, args.seqlen, bos),
-                      token_windows(tok, texts_web(skip=5000), args.eval, args.seqlen, bos)])
-    log(f"calibration {tuple(calib.shape)}, held-out {tuple(held.shape)} ({time.time() - t0:.0f}s)")
+    calib = held = torch.zeros(0, args.seqlen, dtype=torch.long)
+    if not args.rtn:
+        calib = torch.cat([token_windows(tok, texts_chat(proc, "train_sft"), args.chat, args.seqlen, bos),
+                           token_windows(tok, texts_web(), args.web, args.seqlen, bos)])
+        held = torch.cat([token_windows(tok, texts_chat(proc, "test_sft"), args.eval, args.seqlen, bos),
+                          token_windows(tok, texts_web(skip=5000), args.eval, args.seqlen, bos)])
+        log(f"calibration {tuple(calib.shape)}, held-out {tuple(held.shape)} ({time.time() - t0:.0f}s)")
     batches = [calib[i:i + args.batch].cuda() for i in range(0, len(calib), args.batch)]
 
     @torch.no_grad()
@@ -269,63 +272,75 @@ def main():
 
     for i in range(L):
         assert [k for k, _, _ in groups_of(i)][0] in ("inProj", "qkvg")
-    quality = {}
-    quality["ppl_bf16"] = perplexity()
-    log("perplexity, original bf16:", quality["ppl_bf16"])
+    if args.rtn:  # plain round-to-nearest (same clip search), no calibration text or perplexity
+        quality = {"method": "round-to-nearest 4-bit, groups of 64, clip search; no calibration"}
+        packed = {}
+        with torch.no_grad():
+            for i in range(L):
+                for key, _, mats in groups_of(i):
+                    codes, S, Mn, _ = rtn(torch.cat([orig[name_of[m.weight]].to("cuda").float() for m in mats]))
+                    packed[f"{i}.{key}"] = pack(codes, S, Mn)
+            emb_rtn = [t.cpu() for t in rtn(orig[name_of[lm.embed_tokens.weight]].to("cuda").float())[:3]]
+        emb_g = emb_rtn
+        log("round-to-nearest done")
+    else:
+        quality = {}
+        quality["ppl_bf16"] = perplexity()
+        log("perplexity, original bf16:", quality["ppl_bf16"])
 
-    # baseline: plain round-to-nearest 4-bit (groups of 64, same clip search) on every matrix
-    with torch.no_grad():
-        for i in range(L):
-            for _, _, mats in groups_of(i):
-                for m in mats:
-                    m.weight.copy_(rtn(m.weight.float())[3].to(m.weight.dtype))
-        emb_rtn = rtn(lm.embed_tokens.weight.float())
-        emb_rtn_deq = emb_rtn[3].to(torch.bfloat16)
-        emb_rtn = [t.cpu() for t in emb_rtn[:3]]
-        lm.embed_tokens.weight.copy_(emb_rtn_deq)
-    quality["ppl_rtn_q4g64"] = perplexity()
-    log("perplexity, round-to-nearest 4-bit:", quality["ppl_rtn_q4g64"])
-    with torch.no_grad():
-        for k, v in lm.named_parameters():
-            v.copy_(orig[k].to(v.device))
-        lm.embed_tokens.weight.copy_(emb_rtn_deq)  # the layers are calibrated on the 4-bit table
-        del emb_rtn_deq
+        # baseline: plain round-to-nearest 4-bit (groups of 64, same clip search) on every matrix
+        with torch.no_grad():
+            for i in range(L):
+                for _, _, mats in groups_of(i):
+                    for m in mats:
+                        m.weight.copy_(rtn(m.weight.float())[3].to(m.weight.dtype))
+            emb_rtn = rtn(lm.embed_tokens.weight.float())
+            emb_rtn_deq = emb_rtn[3].to(torch.bfloat16)
+            emb_rtn = [t.cpu() for t in emb_rtn[:3]]
+            lm.embed_tokens.weight.copy_(emb_rtn_deq)
+        quality["ppl_rtn_q4g64"] = perplexity()
+        log("perplexity, round-to-nearest 4-bit:", quality["ppl_rtn_q4g64"])
+        with torch.no_grad():
+            for k, v in lm.named_parameters():
+                v.copy_(orig[k].to(v.device))
+            lm.embed_tokens.weight.copy_(emb_rtn_deq)  # the layers are calibrated on the 4-bit table
+            del emb_rtn_deq
 
-    # GPTQ, true-sequential: each step sees the outputs of every matrix quantized before it
-    packed = {}
-    t0 = time.time()
-    with torch.no_grad():
-        for i in range(L):
-            for key, cap, mats in groups_of(i):
-                H = hessian(cap)
-                W = torch.cat([orig[name_of[m.weight]].to("cuda").float() for m in mats])
-                codes, S, Mn, deq = gptq(W, H)
-                r = 0
-                for m in mats:
-                    n = m.weight.shape[0]
-                    m.weight.copy_(deq[r:r + n].to(m.weight.dtype))
-                    r += n
-                packed[f"{i}.{key}"] = pack(codes, S, Mn)
-                del H, W, codes, S, Mn, deq
-            log(f"layer {i} ({'conv' if hasattr(layers[i], 'conv') else 'attn'}) done, {time.time() - t0:.0f}s")
-    quality["ppl_gptq_q4g64_rtn_table"] = perplexity()
-    log("perplexity, GPTQ 4-bit (table round-to-nearest):", quality["ppl_gptq_q4g64_rtn_table"])
+        # GPTQ, true-sequential: each step sees the outputs of every matrix quantized before it
+        packed = {}
+        t0 = time.time()
+        with torch.no_grad():
+            for i in range(L):
+                for key, cap, mats in groups_of(i):
+                    H = hessian(cap)
+                    W = torch.cat([orig[name_of[m.weight]].to("cuda").float() for m in mats])
+                    codes, S, Mn, deq = gptq(W, H)
+                    r = 0
+                    for m in mats:
+                        n = m.weight.shape[0]
+                        m.weight.copy_(deq[r:r + n].to(m.weight.dtype))
+                        r += n
+                    packed[f"{i}.{key}"] = pack(codes, S, Mn)
+                    del H, W, codes, S, Mn, deq
+                log(f"layer {i} ({'conv' if hasattr(layers[i], 'conv') else 'attn'}) done, {time.time() - t0:.0f}s")
+        quality["ppl_gptq_q4g64_rtn_table"] = perplexity()
+        log("perplexity, GPTQ 4-bit (table round-to-nearest):", quality["ppl_gptq_q4g64_rtn_table"])
 
-    # the table as the output head: GPTQ on the final hidden states (the lookups then use the same values)
-    with torch.no_grad():
-        H = None
-        n = 0
-        for b in batches:
-            x = lm(input_ids=b, use_cache=False).last_hidden_state
-            x = x.reshape(-1, x.shape[-1]).float()
-            H = x.t() @ x if H is None else H.addmm_(x.t(), x)
-            n += x.shape[0]
-        emb_g = gptq(orig[name_of[lm.embed_tokens.weight]].to("cuda").float(), H / n)
-        del H
-        lm.embed_tokens.weight.copy_(emb_g[3].to(torch.bfloat16))
-        emb_g = [t.cpu() for t in emb_g[:3]]
-    quality["ppl_gptq_q4g64_gptq_table"] = perplexity()
-    log("perplexity, GPTQ 4-bit (table GPTQ):", quality["ppl_gptq_q4g64_gptq_table"])
+        # the table as the output head: GPTQ on the final hidden states (the lookups then use the same values)
+        with torch.no_grad():
+            H = None
+            n = 0
+            for b in batches:
+                x = lm(input_ids=b, use_cache=False).last_hidden_state
+                x = x.reshape(-1, x.shape[-1]).float()
+                H = x.t() @ x if H is None else H.addmm_(x.t(), x)
+                n += x.shape[0]
+            emb_g = gptq(orig[name_of[lm.embed_tokens.weight]].to("cuda").float(), H / n)
+            del H
+            lm.embed_tokens.weight.copy_(emb_g[3].to(torch.bfloat16))
+            emb_g = [t.cpu() for t in emb_g[:3]]
+        quality["ppl_gptq_q4g64_gptq_table"] = perplexity()
+        log("perplexity, GPTQ 4-bit (table GPTQ):", quality["ppl_gptq_q4g64_gptq_table"])
 
     # ---- write the engine's bytes ----
     path = hf_hub_download(mid, "model.safetensors")
