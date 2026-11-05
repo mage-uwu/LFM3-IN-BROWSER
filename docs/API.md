@@ -1,8 +1,36 @@
 # Engine API
 
 The engine is plain ES modules in `public/engine/`. Import them from your page; there are no dependencies and no
-build step. All examples assume `weights.js` is loaded first (`<script src="weights.js">`). It defines one global
-per weight set:
+build step. `public/engine/index.js` exports everything from one module.
+
+## The happy path: `loader.js`
+
+```js
+import { loadLFM3, loadVision, loadAudio, loadSpeech } from "./engine/loader.js";
+
+const { device, model, chat } = await loadLFM3({ onProgress: ({ got, total }) => {} });
+const { reply } = await chat.send("Hello!", { onText: (t) => render(t) });
+```
+
+| Call | What it does |
+| --- | --- |
+| `loadLFM3({ base, ctx = 4096, onProgress, device })` | Opens WebGPU, or uses `device`. Loads `weights.js` if the page has not, then the language model, the tokenizer and a `Chat` with its system prompt prefilled. Returns `{ device, info, model, tokenizer, chat, fromDevice }`. |
+| `loadVision(device, { base, onProgress })` | The image encoder, as a `Vision`. |
+| `loadAudio(device, { base, onProgress })` | The speech encoder, as an `Audio`. |
+| `loadSpeech(device, { base, onProgress })` | The spoken-reply models, as `{ depth, codec }`. |
+| `weightSet(W, family, { base })` | The device cache for one weight set: `saved()`, `source()`, `prepare()`, `finish()`. The app uses it to show "Continue loading (40% saved)". |
+| `cachedTokenizer(base)` | The tokenizer, kept in IndexedDB after the first fetch. |
+
+`base` is the site's root, where `weights.js`, `weights/` and the `lfm3-tokenizer-*` files are. It defaults to the
+page's folder; a page in a subfolder passes `new URL("../", location.href)`. Every weight part is stored in
+IndexedDB as it arrives, under the set's id, so:
+- later loads read the device's copy;
+- an interrupted download resumes;
+- pages on the same site share one copy.
+
+## The weight sets
+
+`weights.js` defines one global per weight set:
 
 | Global | Model | Format | Size |
 | --- | --- | --- | --- |
@@ -14,10 +42,10 @@ per weight set:
 
 Each is `{ id, format, total, tensors, chunks: [{ url, bytes }] }`. The URLs are relative to the site's root.
 
-## Loading weights
+### Loading by hand
 
-Every model class takes `{ prequant }`: the tensor list, plus a function returning an async iterator of the
-weight bytes in order. `prefetched()` keeps two parts downloading ahead of the GPU upload.
+Every model class takes `{ prequant }`: the tensor list, plus a function returning an async iterator of the weight
+bytes in order. Without the loader, and without the device cache:
 
 ```js
 import { pngPayload, prefetched } from "./engine/pngbytes.js";
@@ -31,8 +59,7 @@ async function part(c) {
 const source = (W) => ({ id: W.id, manifest: W.tensors, chunks: () => prefetched(W.chunks, part) });
 ```
 
-The app also keeps every part in IndexedDB as it arrives (`engine/store.js`), so later visits load from the
-device. See `weightSet()` in `public/app.js` to do the same.
+The examples below use `source(...)`. With the loader, use `loadVision()` and the like instead.
 
 ## `lfm3.js`: the language model
 
@@ -40,6 +67,7 @@ device. See `weightSet()` in `public/app.js` to do the same.
 import { initDevice, LFM3 } from "./engine/lfm3.js";
 
 const { device, info } = await initDevice();            // throws if WebGPU is missing; info: { vendor, architecture, ... }
+// (loadLFM3() above does all of this, with the device cache)
 const model = new LFM3(device, { ctx: 4096, prequant: source(LFM3_WEIGHTS) });
 await model.load(({ got, total }) => {});               // streams the weights into GPU buffers
 ```
@@ -168,4 +196,6 @@ The model ends up in exactly the state that `speak()` with the whole clip would 
 | `kernels.js` | The WGSL sources: `gemvSource(quant)`, `embedSource`, the norms, attention, RoPE, arg-max, and on-GPU quantization (`quantizeSource`, `BF16_TO_F32`). |
 | `pngbytes.js` | `pngPayload(bytes, n)`, and `prefetched(chunks, loadOne, { ahead })`. |
 | `store.js` | `store` (IndexedDB key-value: `get`, `put`, `del`, `keys`, `delWhere`), `persist()`, `room()`. |
+| `loader.js` | `loadLFM3`, `loadVision`, `loadAudio`, `loadSpeech`, `weightSet`, `cachedTokenizer`, `ensureWeights`, `fetchBytes`. |
+| `index.js` | Re-exports the public API of every module above. |
 | `listen.js` | `MicCapture`, `Resampler`, `resample16k`. |

@@ -9,8 +9,20 @@ on an iPhone in Safari 26 or later.
 
 ![LFM3 in the Browser](public/og.png)
 
+This is a **reference implementation**: the simplest complete way to use LFM3-Omni-2B directly inside a website
+or web app. Copy one folder to any static host and load the model in one call. There is no server code, no build
+step and there are no dependencies.
+
 Implementation by **Mage / Toaster Club LLC**. The model is by **Liquid AI** and is used under its
-[LFM Open License v1.0](LICENSE-LFM.txt). This is an independent project, not affiliated with Liquid AI.
+[LFM Open License v1.0](LICENSE-LFM.txt) (see [Terms of use](#terms-of-use)). This is an independent project, not
+affiliated with Liquid AI.
+
+| Start here | |
+| --- | --- |
+| Using the app, installing it, privacy, troubleshooting | [USER.md](USER.md) |
+| AI coding agents: setup, repo map, rules, checks | [AGENTS.md](AGENTS.md) |
+| Using the engine in your own page | [docs/API.md](docs/API.md) and [`public/examples/chat.html`](public/examples/chat.html) |
+| How it works; the weights; how it was tested | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/WEIGHTS.md](docs/WEIGHTS.md), [docs/TESTING.md](docs/TESTING.md) |
 
 ## What it does
 
@@ -76,28 +88,26 @@ Then open <http://localhost:8787> (wrangler) or <http://localhost:8080> in Chrom
 
 ## Use the engine in your own page
 
-[`public/examples/chat.html`](public/examples/chat.html) is a complete working page in about forty lines of
-JavaScript. The core of it:
+Copy `public/engine/`, `public/weights/`, `public/weights.js` and the two `public/lfm3-tokenizer-*` files into your
+site, then:
 
 ```js
-import { initDevice, LFM3 } from "./engine/lfm3.js";
-import { Chat } from "./engine/chat.js";
-import { Tokenizer } from "./engine/tokenizer.js";
-import { pngPayload, prefetched } from "./engine/pngbytes.js";
+import { loadLFM3 } from "./engine/loader.js";
 
-const W = window.LFM3_WEIGHTS;   // from weights.js: the tensor list and the part URLs
-const part = async (c) => pngPayload(new Uint8Array(await (await fetch(c.url)).arrayBuffer()), c.bytes);
-
-const { device } = await initDevice();
-const model = new LFM3(device, { ctx: 4096, prequant: { id: W.id, manifest: W.tensors, chunks: () => prefetched(W.chunks, part) } });
-await model.load((p) => console.log(`${p.got} / ${p.total} bytes`));
-const chat = new Chat(model, await Tokenizer.fromFiles("./"));
-await chat.newChat();
+const { chat } = await loadLFM3({ onProgress: (p) => console.log(`${p.got} / ${p.total} bytes`) });
 const { reply } = await chat.send("Hello!", { onText: (t) => console.log(t) });
 ```
 
-The engine is plain ES modules in `public/engine/` with no dependencies and no build step. Images, speech input,
-spoken replies, streamed push-to-talk turns and the memory are covered in [docs/API.md](docs/API.md).
+`loadLFM3()` does the whole loading job in one call:
+- it opens WebGPU;
+- it streams the language model into the GPU;
+- it keeps a copy in the browser's IndexedDB, so later visits load from the device and an interrupted download
+  resumes;
+- it loads the tokenizer and starts a chat.
+
+[`public/examples/chat.html`](public/examples/chat.html) is a complete page built on it. `loadVision()`,
+`loadAudio()` and `loadSpeech()` add photos, speech input and spoken answers. `public/engine/index.js` exports the
+whole engine from one module. The engine is plain ES modules with no dependencies; see [docs/API.md](docs/API.md).
 
 ## Checked against the original model
 
@@ -123,6 +133,8 @@ On a phone, speed depends on its GPU, and the app shows the real numbers under e
 public/              the site: deploy this folder
   index.html app.js    the app
   engine/              the engine: WebGPU + WGSL, plain ES modules (docs/API.md)
+    loader.js            the happy path: loadLFM3(), loadVision(), loadAudio(), loadSpeech()
+    index.js             the whole engine in one import
   examples/chat.html   a minimal page that uses the engine
   weights.js           the weight sets' tensor lists and part URLs
   weights/<set-id>/    the model's weights as PNG parts, with chunks.json (sha256 of every part)
@@ -131,6 +143,8 @@ public/              the site: deploy this folder
 tools/               export the weights, pack them, regenerate icons; references and tests (docs/WEIGHTS.md)
 results/             measured results (docs/TESTING.md)
 docs/                architecture, API, weights, testing
+AGENTS.md            for AI coding agents: setup, map, rules
+USER.md              for people: using it, privacy, troubleshooting, terms
 ```
 
 ## Credits
@@ -140,14 +154,28 @@ docs/                architecture, API, weights, testing
 - **LFM3-Omni-2B:** Liquid AI, Inc. That includes the model, its weights, the tokenizer, the chat format and the
   Liquid voice codec. See the [model card](https://huggingface.co/LiquidAI/LFM3-Omni-2B).
 
-## License
+## Terms of use
 
-- **Code** (everything except the files derived from the model): [Apache License 2.0](LICENSE). Copyright 2026 Toaster Club LLC.
-- **Model weights and tokenizer** (`public/weights/`, `public/lfm3-tokenizer-*`): derived from LFM3-Omni-2B and
-  licensed under the [LFM Open License v1.0](LICENSE-LFM.txt). We quantized, reordered and repacked the weights; see
-  [NOTICE](NOTICE). The license's Section 5 limits commercial use: it is licensed only for individuals and
-  organizations below US$10 million in annual revenue, except for qualified non-profits' non-commercial or research
-  use. If you redistribute the weights, include `LICENSE-LFM.txt` and `NOTICE`.
-- LFM, LFM3 and Liquid AI are names of Liquid AI, Inc., used here only to say where the model comes from.
+**The model.** LFM3-Omni-2B, its weights and its tokenizer are by Liquid AI, Inc., licensed under the
+[LFM Open License v1.0](LICENSE-LFM.txt). Everything derived from them here (`public/weights/`,
+`public/lfm3-tokenizer-*`) is under the same license. In short, and the license text governs:
+
+- **You may** use, modify and redistribute the model, commercially or not, within the limits below.
+- **If you redistribute it** (and hosting this site counts, since visitors download the weights), give recipients
+  a copy of the license. Mark files you changed as changed, and keep the attribution notices and the
+  [NOTICE](NOTICE). This site serves both under `licenses/`.
+- **Commercial use is licensed only below US$10,000,000 in annual revenue** (Section 5). Organizations at or above
+  that need a separate agreement with Liquid AI. Qualified non-profits are exempt for non-commercial or research
+  use.
+- **Trademarks** (Section 7): Liquid AI's names may only be used to describe where the model comes from.
+- **Patents** (Section 3): patent litigation over the work ends the patent license it grants.
+- **No warranty, no liability** (Sections 8–9). The license **terminates** if its terms are broken (Section 11).
+
+**This project's code** (the engine, its WGSL shaders, the app and the tools) is under the
+[Apache License 2.0](LICENSE), copyright 2026 Toaster Club LLC.
+
+We quantized, reordered and repacked the weights; [NOTICE](NOTICE) says exactly how. LFM, LFM3 and Liquid AI are
+names of Liquid AI, Inc., used here only to say where the model comes from. This project is not affiliated with,
+sponsored by or endorsed by Liquid AI.
 
 If you use this work, please cite it ([CITATION.cff](CITATION.cff)) and Liquid AI's model.

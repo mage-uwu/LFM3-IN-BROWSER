@@ -17,48 +17,32 @@
 </head>
 <body>
 <h1>Minimal example</h1>
-<p class="muted">The smallest page that runs the engine: it streams the language model from this site's weights into the
-GPU, then chats. About forty lines of JavaScript; read this page's source. The full app is <a href="../">here</a>.</p>
+<p class="muted">The smallest page that runs the engine: one call loads the language model into the GPU (and keeps it
+on this device for next time), then it chats. Read this page's source. The full app is <a href="../">here</a>.</p>
 <p><button id="load">Load the model (0.9 GB)</button> <span id="status" class="muted"></span></p>
 <p><textarea id="q" rows="2" disabled>What is WebGPU? Answer in one sentence.</textarea></p>
 <p><button id="ask" disabled>Ask</button></p>
 <p id="out"></p>
 
-<!-- the weight sets' tensor lists and part URLs (written by tools/pack_weights.py) -->
-<script src="../weights.js"></script>
 <script type="module">
-import { initDevice, LFM3 } from "../engine/lfm3.js";
-import { Chat } from "../engine/chat.js";
-import { Tokenizer } from "../engine/tokenizer.js";
-import { pngPayload, prefetched } from "../engine/pngbytes.js";
+import { loadLFM3 } from "../engine/loader.js";
 
 const $ = (id) => document.getElementById(id);
-const site = new URL("../", location.href);   // weights.js and the tokenizer files sit at the site's root
-const W = window.LFM3_WEIGHTS;                 // the language model: { id, tensors, chunks: [{ url, bytes }] }
 let chat = null;
-
-// one weight part: a PNG container whose pixels are the bytes; pngPayload inflates it and checks its length
-async function part(c) {
-  const r = await fetch(new URL(c.url, site));
-  if (!r.ok) throw new Error(`${c.url}: HTTP ${r.status}`);
-  return pngPayload(new Uint8Array(await r.arrayBuffer()), c.bytes);
-}
 
 $("load").onclick = async () => {
   $("load").disabled = true;
   try {
-    const { device } = await initDevice();   // WebGPU: Safari 26+ on iPhone, recent Chrome, Edge or Safari
-    const model = new LFM3(device, {
-      ctx: 4096,                             // context length (tokens)
-      prequant: { id: W.id, manifest: W.tensors, chunks: () => prefetched(W.chunks, part) },   // two parts in flight
-    });
-    await model.load((p) => { $("status").textContent = `${(p.got / 1e9).toFixed(2)} of ${(p.total / 1e9).toFixed(2)} GB`; });
-    chat = new Chat(model, await Tokenizer.fromFiles(site.href));
-    await chat.newChat();                     // prefills the system prompt once
+    // One call: WebGPU, the language model (from this device's copy when it has one), the tokenizer, and a chat
+    // with its system prompt prefilled. base is the site's root, where weights.js, weights/ and the tokenizer are.
+    ({ chat } = await loadLFM3({
+      base: new URL("../", location.href),
+      onProgress: (p) => { $("status").textContent = `${(p.got / 1e9).toFixed(2)} of ${(p.total / 1e9).toFixed(2)} GB`; },
+    }));
     $("status").textContent = "Ready.";
     $("q").disabled = $("ask").disabled = false;
   } catch (e) {
-    $("status").textContent = e.message;
+    $("status").textContent = e.message;   // for example: no WebGPU in this browser
     $("load").disabled = false;
   }
 };

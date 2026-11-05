@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0. Copyright 2026 Toaster Club LLC.
 import { initDevice, LFM3 } from "./engine/lfm3.js";
 import { Chat, Experience, loadTokenizer, SYSTEM } from "./engine/chat.js";
-import { pngPayload, prefetched } from "./engine/pngbytes.js";
-import { persist, room, store } from "./engine/store.js";
-import { Tokenizer } from "./engine/tokenizer.js";
+import { store } from "./engine/store.js";
 import { preprocess, Vision } from "./engine/vision.js";
 import { Audio, logMel, MelStream } from "./engine/audio.js";
 import { Codec, DepthDecoder } from "./engine/speech.js";
 import { buf } from "./engine/lfm3.js";
 import { MicCapture, Resampler, resample16k } from "./engine/listen.js";
+import { cachedTokenizer, weightSet } from "./engine/loader.js";   // the device copy of each weight set
 
 const $ = (id) => document.getElementById(id);
 // inside a claude.ai artifact the page cannot reach other hosts: the weights come from a picked file
@@ -19,70 +18,6 @@ const WEIGHTS = globalThis.LFM3_WEIGHTS || null;
 let gpu, model, chat, busy = false, stopFlag = false, file = null;
 let answering = null;   // the reply being generated: a new spoken turn stops it and waits for the model
 
-async function fetchBytes(c) {
-  for (let a = 0; ; a++) {
-    try {
-      const r = await fetch(c.url);
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return new Uint8Array(await r.arrayBuffer());
-    } catch (e) {
-      if (a >= 3) throw new Error(`could not fetch the model's weights (${e.message})`);
-      await new Promise((res) => setTimeout(res, 1000 * 2 ** a));
-    }
-  }
-}
-// ---- weights on this device (IndexedDB): each decoded part of a weight set is kept as it streams in, under
-// <family>/<id>/<index>; <family>/<id>/complete marks a full copy. Later loads read the parts back instead of
-// downloading, and an interrupted first load resumes with the parts it already kept. Families: w/ the language
-// model, v/ the image model.
-function weightSet(W, family) {
-  const prefix = `${family}${W.id}/`, n = W.chunks.length;
-  return {
-    W, prefix, n,
-    async saved() { // parts on this device and whether the copy is complete (null: no storage)
-      try {
-        const keys = (await store.keys()).map(String).filter((k) => k.startsWith(prefix));
-        return { n: keys.filter((k) => !k.endsWith("complete")).length, complete: keys.includes(prefix + "complete") };
-      } catch { return null; }
-    },
-    source() {
-      const src = { fromDevice: 0, saved: 0, saving: true, saveError: null };
-      const loadOne = async (c, i) => {
-        try {
-          const ab = await store.get(prefix + i);
-          if (ab && ab.byteLength === c.bytes) { src.fromDevice++; return new Uint8Array(ab); }
-        } catch { /* not on this device: download it */ }
-        const data = await pngPayload(await fetchBytes(c), c.bytes);
-        if (src.saving) {
-          try { await store.put(prefix + i, data.buffer); src.saved++; } catch (e) { src.saving = false; src.saveError = e; }
-        }
-        return data;
-      };
-      src.prequant = { id: W.id, manifest: W.tensors, chunks: () => prefetched(W.chunks, loadOne) };
-      return src;
-    },
-    async prepare(src) { // keep a copy only if the browser has storage and room for the parts still missing
-      const s = await this.saved();
-      if (s?.complete) return s;
-      await persist();
-      const free = await room(), need = W.total * (1 - (s?.n || 0) / n);
-      if (s === null) { src.saving = false; src.saveError = new Error("storage is not available here"); }
-      else if (free !== null && free < need * 1.05) { src.saving = false; src.saveError = new Error("not enough room"); }
-      return s;
-    },
-    async finish(src) { // mark a full copy, or drop a partial one that cannot be finished
-      try {
-        if (src.fromDevice + src.saved === n) {
-          await store.put(prefix + "complete", { total: W.total, at: new Date().toISOString() });
-          await store.delWhere((k) => k.startsWith(family) && !k.startsWith(prefix));  // older versions
-          return "saved";
-        }
-        if (src.saveError) await store.delWhere((k) => k.startsWith(prefix));
-      } catch { /* storage unavailable */ }
-      return src.saveError ? "failed" : "partial";
-    },
-  };
-}
 const LM = WEIGHTS ? weightSet(WEIGHTS, "w/") : null;
 const VISION = globalThis.LFM3_VISION || null;   // the image model's weights, when the build carries them
 const VIS = VISION ? weightSet(VISION, "v/") : null;
@@ -97,20 +32,6 @@ async function showSaved() {
   $("loadBtn").textContent = s?.complete ? "Load the model (saved on this device)"
     : s?.n ? `Continue loading the model (${Math.round((100 * s.n) / n)}% saved)` : "Load the model";
 }
-// the tokenizer, kept on the device beside the weights
-async function tokenizerFromStore() {
-  const KEY = "tok/lfm3-v1";
-  try {
-    const t = await store.get(KEY);
-    if (t) return Tokenizer.fromParts(JSON.parse(t.vocab), t.merges);
-  } catch { /* fetch it */ }
-  const base = new URL("./", document.baseURI);
-  const get = async (n) => { const r = await fetch(new URL(n, base)); if (!r.ok) throw new Error(`tokenizer: HTTP ${r.status}`); return r.text(); };
-  const [vocab, merges] = await Promise.all([get("lfm3-tokenizer-vocab.json"), get("lfm3-tokenizer-merges.txt")]);
-  try { await store.put(KEY, { vocab, merges }); } catch { /* keep going without */ }
-  return Tokenizer.fromParts(JSON.parse(vocab), merges);
-}
-
 function bubble(role, text) {
   const div = document.createElement("div");
   div.className = `msg ${role}`;
@@ -187,7 +108,7 @@ async function load(source) {
       await LM.prepare(src);
     }
     model = new LFM3(gpu.device, { quant: $("quant").value, ctx: +$("ctx").value, ...source });
-    const tokP = WEIGHTS ? tokenizerFromStore() : loadTokenizer();
+    const tokP = WEIGHTS ? cachedTokenizer() : loadTokenizer();
     await model.load((p) => {
       $("prog").value = p.got / p.total;
       const gb = `${(p.got / 1e9).toFixed(2)} of ${(p.total / 1e9).toFixed(2)} GB`;

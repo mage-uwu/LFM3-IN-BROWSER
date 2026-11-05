@@ -12,6 +12,22 @@ speech ─► audio.js (log-mel,   │                         └─► hidden 
           17-layer encoder) ───┘                                              frame) ─► codec ─► 24 kHz audio
 ```
 
+## Modules
+
+| Module | Role |
+| --- | --- |
+| `loader.js` | The happy path: one call loads a model through the device's IndexedDB copy (`loadLFM3`, `loadVision`, `loadAudio`, `loadSpeech`). |
+| `lfm3.js`, `kernels.js` | The language model; the shared WGSL kernels (GEMV/GEMM per weight format, norms, attention, RoPE, arg-max, on-GPU quantization). |
+| `chat.js`, `tokenizer.js` | The chat template, conversations, spoken turns, streamed push to talk, speech recognition and the memory; the tokenizer. |
+| `vision.js` | Image preprocessing, the image encoder and its projector. |
+| `audio.js` | Log-mel (whole clips, and streamed while recording), the speech encoder and its projector. |
+| `speech.js` | Spoken replies: the depth decoder and the voice codec decoder. |
+| `listen.js` | Microphone capture, and the resampler to 16 kHz. |
+| `pngbytes.js`, `store.js` | Weight part containers; IndexedDB storage. |
+| `index.js` | Re-exports the public API of all of the above. |
+
+Each module imports only its siblings, so a page can take just the ones it needs.
+
 ## Constraints
 
 - **No WebGPU extensions.** f16 values are packed into u32 words and unpacked in the shaders, so everything runs
