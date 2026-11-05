@@ -79,6 +79,18 @@ licenses in Settings, sets custom instructions and asks a question, and checks t
 python3 tools/site_test.py --base https://lfm.toasterclub.com --out out/site
 ```
 
+`--smoke` runs the app's own smoke test instead (Settings → Smoke test) and records its results, the header's tags
+and a screenshot of the results. `--short` uses its smaller inputs, so it finishes on SwiftShader. `--overlay public`
+serves your local copy of the page and its scripts while the weights still come from the site, so an app change
+can be checked before it is deployed:
+
+```bash
+python3 tools/site_test.py --smoke --short --overlay public --out out/smoke
+```
+
+On SwiftShader the numbers only show that each workflow runs. Real numbers come from running the smoke test in a
+browser on a real GPU.
+
 ## What was found this way
 
 These tests caught real bugs before users did:

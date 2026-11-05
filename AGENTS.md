@@ -54,6 +54,7 @@ Run these from the repository root. They need Node 18+ and Python 3.10+.
 ```
 public/                  the site (deploy this folder)
   index.html, app.js       the full app: chat, push to talk, Live, photos, spoken replies, memory, settings
+  smoke.js                 Settings' smoke test: every workflow once, checked and measured (window.LFM3_SMOKE)
   engine/                  the engine: plain ES modules, WebGPU + WGSL, no dependencies
     index.js                 one import for everything below
     loader.js                the happy path: loadLFM3(), loadVision(), loadAudio(), loadSpeech(); device cache
@@ -103,7 +104,9 @@ results/                 measured results quoted in the README
 7. **Test before you push to `main`:**
    - static checks on everything you touched: `node --check` for JavaScript, `python3 -m pyflakes` for Python;
    - for engine changes, the GPU tests in [docs/TESTING.md](docs/TESTING.md);
-   - after deploying, `python3 tools/site_test.py --base <url>`.
+   - after deploying, `python3 tools/site_test.py --base <url>`;
+   - for app changes, `python3 tools/site_test.py --smoke --short --overlay public` runs the app's smoke test
+     with your local files against the deployed weights, before deploying.
 
    A push to `main` is a production deploy.
 
@@ -112,6 +115,7 @@ results/                 measured results quoted in the README
 | Change | Where |
 | --- | --- |
 | The app's look or behavior | `public/index.html` (markup and CSS), `public/app.js` |
+| The smoke test's workflows, checks or numbers | `public/smoke.js`; bump `SMOKE_VERSION` when results stop being comparable |
 | How a page loads the model | `public/engine/loader.js` |
 | A shader or the language model | `public/engine/kernels.js`, `public/engine/lfm3.js`; check with `tools/node_bench.mjs` |
 | Photos, speech in, speech out | `vision.js`, `audio.js`, `speech.js`; their `tools/node_*_test.mjs` |

@@ -169,7 +169,21 @@ The app is one page. Its parts:
 - a composer whose round button is push to talk;
 - a soap-bubble character in voice mode, whose mouth follows the output audio through an `AnalyserNode`;
 - Live, a full-screen camera mode;
-- the memory and settings sheets.
+- the memory and settings sheets;
+- the smoke test in Settings (`smoke.js`).
+
+The smoke test runs each workflow once with fixed inputs, under the default instructions and with no memory, so
+its numbers compare across devices:
+
+- text, with a known answer, then a 587-token prefill and 128 decoded tokens with no stop;
+- a drawn picture through the image encoder;
+- a spoken reply;
+- that reply heard back by the speech encoder and the model's ASR, scored by word error rate;
+- the same speech streamed in at speaking pace with a camera picture, through `openTurn`, `feedAudio` and
+  `closeTurn`, timed from the release to the first sound.
+
+It then starts the user's own chat again. Its results are shown, and are copied, shared or saved only when the user
+asks.
 
 The weight sets download the first time each is needed, and their parts are stored in IndexedDB as they stream in.
 An interrupted load resumes from the parts already stored.

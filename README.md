@@ -37,6 +37,9 @@ affiliated with Liquid AI.
   instructions on the device. The next chat starts already knowing them. Nothing is retrieved per message and the
   weights never change.
 - **Your own instructions.** Settings takes an optional system prompt.
+- **Smoke test.** Settings runs every workflow once on your device and measures it. That covers text (time to
+  the first token, prefill and decode tokens per second), a photo, a spoken reply, speech recognition, and a
+  push-to-talk turn with a camera picture. Copy, share or save the results.
 - **Installable.** Add it to the iPhone home screen. The weights stay in the browser's storage after the first
   load.
 
@@ -126,6 +129,22 @@ through Dawn, Chrome's WebGPU implementation, in Node.js. The raw numbers are in
 | Memory from speech | The model heard its own spoken "My sister's name is Rosa and I live in Lisbon." word for word and learned both facts. A new chat answered "Your sister's name is Rosa and you live in Lisbon." |
 
 On a phone, speed depends on its GPU, and the app shows the real numbers under every reply.
+
+### Real numbers from your device
+
+Open the site, load the model, then **Settings → Smoke test → Run the smoke test**. It checks and measures each
+workflow on your GPU with the same inputs everywhere, so results compare across devices:
+
+| Row | Checks | Measures |
+| --- | --- | --- |
+| Text | "What is the capital of France?" is answered "Paris" | time to the first token; prefill tok/s over a 587-token prompt; decode tok/s over 128 new tokens |
+| Photo | a drawn red circle is called red | image tokens and encode time; prefill tok/s; time to the first token |
+| Spoken reply | the model speaks a short introduction | time to the first sound; speech frames per second (12.5 is real time) |
+| Speech in | that speech, heard back by the speech encoder and the model's own ASR, matches its text | speed against real time; share of words heard |
+| Push to talk + camera | the same speech streamed in at speaking pace, with a camera picture, gets a spoken answer | time from letting go to the first sound; tokens taken in while speaking |
+
+**Copy results** gives a short text for a post or an issue, and **Save JSON** gives every number. Nothing is
+sent anywhere by the test itself. To publish your device's numbers, post the copied text in an issue.
 
 ## Repository layout
 

@@ -35,7 +35,7 @@
   :root {
     color-scheme: light;
     --bg: #ffffff; --fg: #111214; --muted: #74777f; --faint: #a3a6ad; --line: #ececee; --soft: #f4f4f5;
-    --ink: #111214; --ink-fg: #ffffff; --accent: #2f6bff; --warn: #b4441c; --veil: rgba(17, 18, 20, 0.28);
+    --ink: #111214; --ink-fg: #ffffff; --accent: #2f6bff; --warn: #b4441c; --ok: #1d8a4e; --veil: rgba(17, 18, 20, 0.28);
     --face: #24262b;
     --sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -62,9 +62,13 @@
 
   /* top bar */
   header { display: flex; align-items: center; gap: 4px; padding-block: 10px 6px; padding-left: var(--gutter-l); padding-right: var(--gutter-r); background: var(--bg); position: relative; z-index: 5; }
-  .brand { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
-  .brand h1 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
-  #chip { font: 11.5px/1.3 var(--mono); color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .brand { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; line-height: 1.2; }
+  .brand h1 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase; }
+  /* the model's tags: the GPU it runs on here, as WebGPU names it, and the weights' precision */
+  .tags { display: flex; gap: 5px; min-width: 0; }
+  .tag { font: 500 11px/1 var(--mono); color: var(--muted); background: var(--soft); border-radius: 999px; padding: 4px 8px 3.5px;
+         white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  #bits { flex: none; }
 
   /* conversation */
   main { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-block: 18px 140px; padding-left: var(--gutter-l); padding-right: var(--gutter-r); }
@@ -192,6 +196,17 @@
   .note { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding-block: 8px; border-bottom: 1px solid var(--line); font-size: 14.5px; }
   .note span { min-width: 0; overflow-wrap: anywhere; }
   .note button { padding: 3px 10px; font-size: 13px; border: 1px solid var(--line); border-radius: 999px; }
+  /* the smoke test's results: one row per workflow, its check on the right, its numbers below */
+  .smokehead { margin: 0; font: 11.5px/1.45 var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+  .srow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, auto); gap: 3px 12px; padding-block: 9px; border-bottom: 1px solid var(--line); font-size: 14.5px; }
+  .srow .sname { font-weight: 500; }
+  .srow .sres { color: var(--muted); text-align: right; overflow-wrap: anywhere; }
+  .srow.pass .sres::before { content: "✓ "; color: var(--ok); font-weight: 600; }
+  .srow.fail .sres { color: var(--warn); }
+  .srow.fail .sres::before { content: "✕ "; font-weight: 600; }
+  .srow.run .sres { color: var(--accent); }
+  .srow.skip { opacity: 0.55; }
+  .srow .snum { grid-column: 1 / -1; font: 11.5px/1.5 var(--mono); color: var(--faint); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 
   /* Live: the camera full screen, the bubble over it */
   #live { position: fixed; inset: 0; z-index: 30; background: #0b0c0e; color: #ffffff; display: flex; flex-direction: column; overflow: hidden; }
@@ -227,7 +242,7 @@
 </head>
 <body>
 <header>
-  <div class="brand"><h1>LFM3 in the Browser</h1><span id="chip">checking WebGPU…</span></div>
+  <div class="brand"><h1>LFM3-Omni-2B</h1><div class="tags"><span class="tag" id="chip">checking WebGPU…</span><span class="tag" id="bits" hidden>4-bit</span></div></div>
   <button id="speakBtn" class="icon" disabled hidden aria-pressed="false" aria-label="Spoken replies" title="Spoken replies">
     <svg viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg></button>
   <button id="memBtn" class="icon" disabled aria-label="Memory" title="Memory">
@@ -330,6 +345,16 @@
     <button id="sysReset">Use the default</button>
   </div>
   <p class="muted" id="sysMsg"></p>
+  <h2 class="about">Smoke test</h2>
+  <p class="muted">Runs every workflow once on this device with the same inputs everywhere, checks each answer and measures it: text (time to the first token, prefill and decode tokens per second), a photo, a spoken reply, speech recognition, and a push-to-talk turn with a camera picture, as in Live. These are real numbers from your GPU, to compare and share. It plays two short spoken answers and starts a new chat when done. Nothing leaves the device unless you copy, share or save the results.</p>
+  <div class="row">
+    <button class="pill" id="smokeRun">Run the smoke test</button>
+    <button id="smokeCopy" hidden>Copy results</button>
+    <button id="smokeShare" hidden>Share</button>
+    <button id="smokeSave" hidden>Save JSON</button>
+  </div>
+  <p class="muted" id="smokeMsg" aria-live="polite"></p>
+  <div id="smokeOut"></div>
   <h2 class="about">About</h2>
   <p class="muted">LFM3 in the Browser is an implementation by Mage / Toaster Club LLC. It runs Liquid AI's LFM3-Omni-2B on this device's GPU with WebGPU, and it is a reference implementation for using the model directly inside websites and web apps: one folder of static files, loaded in one call.</p>
   <p class="muted">The model's weights on this site were quantized and repacked from Liquid AI's release; they and the tokenizer are used under the <a href="licenses/LFM-Open-License-v1.0.txt">LFM Open License v1.0</a>, which limits commercial use to organizations under US$10 million in annual revenue. The app's code is under the <a href="licenses/Apache-2.0.txt">Apache License 2.0</a>. See the <a href="licenses/NOTICE.txt">notices</a>. LFM and Liquid AI are names of Liquid AI, Inc., used here only to say where the model comes from; this project is not affiliated with or endorsed by Liquid AI.</p>

@@ -14,7 +14,8 @@ import os
 import time
 
 # headless Chromium with WebGPU on SwiftShader (the CPU), for machines without a GPU Chromium will use
-SWIFTSHADER_FLAGS = ["--enable-unsafe-webgpu", "--use-webgpu-adapter=swiftshader", "--enable-unsafe-swiftshader", "--no-sandbox"]
+SWIFTSHADER_FLAGS = ["--enable-unsafe-webgpu", "--use-webgpu-adapter=swiftshader", "--enable-unsafe-swiftshader", "--no-sandbox",
+                     "--disable-gpu-watchdog"]   # a software GPU can take longer per submit than the watchdog allows
 
 
 def main():

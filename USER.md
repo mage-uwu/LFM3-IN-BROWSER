@@ -38,6 +38,16 @@ answer out loud, entirely on your own device. It is a reference implementation b
   - In the sheet you can see every note, remove any of them, turn memory off, or **Forget everything**.
 - **Instructions** (the **sliders**): give it your own system prompt, for example "Always answer in French." This
   starts a new chat.
+- **Smoke test** (also in the **sliders** sheet): **Run the smoke test** tries every workflow once on your device
+  and shows, for each, whether it worked and how fast:
+  - text: time to the first token, then prefill and decode tokens per second;
+  - a photo, a spoken reply, and speech recognition;
+  - a push-to-talk turn with a camera picture: the time from letting go to the answer's first sound.
+
+  It plays two short spoken answers and starts a new chat when it is done. **Copy results**, **Share** or **Save
+  JSON** to keep or post the numbers. Until you do, they stay on the device.
+- **The top bar** names the model and shows two tags: your GPU, as the browser names it (for example "apple
+  metal-3"), and the weights' precision ("4-bit").
 - **New chat:** the **pencil** button.
 
 ## Privacy

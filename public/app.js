@@ -8,6 +8,7 @@ import { Codec, DepthDecoder } from "./engine/speech.js";
 import { buf } from "./engine/lfm3.js";
 import { MicCapture, Resampler, resample16k } from "./engine/listen.js";
 import { cachedTokenizer, weightSet } from "./engine/loader.js";   // the device copy of each weight set
+import { runSmoke, smokeText } from "./smoke.js";                    // Settings: the smoke test
 
 const $ = (id) => document.getElementById(id);
 // inside a claude.ai artifact the page cannot reach other hosts: the weights come from a picked file
@@ -74,6 +75,8 @@ async function boot() {
     gpu = await initDevice();
     const i = gpu.info;
     $("chip").textContent = [i.vendor, i.architecture || i.description].filter(Boolean).join(" ") || "WebGPU ready";
+    $("chip").title = i.description || $("chip").textContent;
+    if (WEIGHTS) { $("bits").textContent = "4-bit"; $("bits").hidden = false; }   // the site's weights: GPTQ 4-bit
     $("hubBtn").disabled = false;
     if (WEIGHTS) {
       $("loadBtn").disabled = false;
@@ -130,13 +133,15 @@ async function load(source) {
     $("input").placeholder = "Ask anything";
     syncComposer();
     const s = ((performance.now() - t0) / 1000).toFixed(0);
-    $("chip").textContent += ` · ${model.quant === "q8" ? "8-bit" : "4-bit"}`;
+    $("bits").textContent = model.quant === "q8" ? "8-bit" : "4-bit";
+    $("bits").hidden = false;
     const mem = chat.experience.empty() ? "" : ` Memory loaded: ${Object.keys(chat.experience.facts).length} facts (${info.tokens} tokens in ${info.ms.toFixed(0)} ms).`;
     const kept = !src ? (model.cached === false ? " This browser had no room to save a copy, so next time choose the file again." : "")
       : src.fromDevice === WEIGHTS.chunks.length ? ""
       : saved === "saved" ? " A copy is now saved on this device, so the next load skips the download."
       : ` This browser could not keep a copy (${src.saveError?.message || "storage unavailable"}), so the next load downloads it again.`;
     const local = model.fromCache || (src && src.fromDevice === WEIGHTS.chunks.length);
+    loadStats = { ms: performance.now() - t0, local: !!local };
     note(`Ready in ${s} s${local ? ", from this device" : ""}.${kept}${mem}`);
     await learnLastVisit();
   } catch (e) {
@@ -388,7 +393,7 @@ function joinRows(parts) {
 }
 
 async function send() {
-  if (busy) { stopFlag = true; player?.stop(); return; }
+  if (busy) { stopFlag = true; if (smokeRun) smokeStop = true; player?.stop(); return; }
   const text = $("input").value.trim();
   const pic = photo, vc = voice;
   if (!text && !pic && !vc) return;
@@ -563,7 +568,7 @@ function noMicrophone(e, live) { // the page may not open the microphone (a clau
   $("voiceErr").textContent = `The microphone is not available here (${e.name || e.message}).`;
 }
 async function talkStart(live) {
-  if (PT.state !== "idle" || !chat || !LIVE) return;
+  if (PT.state !== "idle" || !chat || !LIVE || smokeRun) return;
   Object.assign(PT, { state: "starting", live, frame: null, pic: null, opened: null, feeding: null, cancel: false });
   player ||= makePlayer();
   player.ctx.resume?.();   // in the press: iOS starts audio only from a user's gesture
@@ -759,7 +764,7 @@ async function liveCamera() { // (re)open the camera facing the chosen way, or s
   }
 }
 async function liveOpen() {
-  if (L.on || !LIVE || !chat) return;
+  if (L.on || !LIVE || !chat || smokeRun) return;
   L.on = true;
   player ||= makePlayer();
   player.ctx.resume?.();
@@ -1042,6 +1047,7 @@ $("setBtn").onclick = () => {
   $("sysPrompt").value = savedSystem();
   sysCount();
   $("sysMsg").textContent = "";
+  if (!smokeRun) { smokeLast ||= storedSmoke(); renderSmoke(smokeLast); }
   $("settings").classList.add("open");
 };
 $("setClose").onclick = () => $("settings").classList.remove("open");
@@ -1082,6 +1088,100 @@ $("clearMem").onclick = async () => {
   renderNotes();
   await chat.newChat();
   $("memMsg").textContent = "Forgotten.";
+};
+
+// ---- settings: the smoke test (smoke.js). Every workflow once on this device, checked and measured; the results
+// stay on the device unless the user copies, shares or saves them. The last run is kept to show next time.
+const SMOKE_SHORT = new URLSearchParams(location.search).get("smoke") === "short";   // tests: smaller inputs
+const SMOKE_KEY = "lfm3.smoke";
+let smokeRun = null, smokeStop = false, smokeLast = null, loadStats = null;
+const smokeHook = globalThis.LFM3_SMOKE = { running: false, done: 0, result: null };   // tests
+const smokeStatus = (t) => { $("smokeMsg").textContent = t; };
+function el(tag, cls, text) { const e = document.createElement(tag); e.className = cls; if (text != null) e.textContent = text; return e; }
+function storedSmoke() { try { return JSON.parse(localStorage.getItem(SMOKE_KEY) || "null"); } catch { return null; } }
+function renderSmoke(res) {
+  const box = $("smokeOut");
+  box.replaceChildren();
+  const done = !!res && res.total != null;
+  $("smokeCopy").hidden = $("smokeSave").hidden = !done;
+  $("smokeShare").hidden = !done || !navigator.share;
+  if (!res) return;
+  const d = res.device;
+  box.append(el("p", "smokehead", [d.gpu, d.os, d.browser, `${res.weights.format} weights`, res.ms ? `${Math.round(res.ms / 1000)} s` : "",
+    done ? new Date(res.at).toLocaleString() : ""].filter(Boolean).join(" · ")));
+  for (const r of res.rows) {
+    const row = el("div", `srow ${r.state}`);
+    row.append(el("span", "sname", r.name), el("span", "sres", r.state === "run" ? "running…" : r.result));
+    if (r.numbers) row.append(el("div", "snum", r.numbers));
+    box.append(row);
+  }
+  if (done && !smokeRun) smokeStatus(`${res.passed} of ${res.total} passed${res.short ? " (short inputs)" : ""}.`);
+}
+const how = async (loaded, ...sets) => (loaded ? "loaded" : (await Promise.all(sets.map((x) => x.saved()))).every((x) => x?.complete) ? "device" : "network");
+$("smokeRun").onclick = async () => {
+  if (smokeRun) { smokeStop = true; $("smokeRun").textContent = "Stopping…"; return; }
+  if (!chat || busy || PT.state !== "idle" || L.on) { smokeStatus("Wait for the answer to finish, then run it."); return; }
+  player ||= makePlayer();
+  player.ctx.resume?.();   // in the tap, so the spoken replies can play
+  smokeStop = false;
+  smokeRun = true;
+  $("smokeRun").textContent = "Stop";
+  smokeStatus("Starting a new chat…");
+  await freshChat();   // the chat so far is learned from first, as New chat does
+  busy = true;
+  $("input").disabled = true;
+  syncComposer();
+  smokeHook.running = true;
+  const api = {
+    device: gpu.device, model, chat, info: gpu.info, load: loadStats,
+    weights: { lm: WEIGHTS?.id, vision: VISION?.id, audio: SPEECH?.id, talk: TALK?.id, codec: CODEC?.id },
+    vision: VISION ? async () => ({ how: await how(vision, VIS), model: await ensureVision(smokeStatus) }) : null,
+    audio: SPEECH ? async () => ({ how: await how(audioEnc, AUD), model: await ensureAudio(smokeStatus) }) : null,
+    talk: TALK && CODEC ? async () => ({ how: await how(talk, TLK, CDC), model: await ensureTalk(smokeStatus) }) : null,
+    play: { begin: () => player.begin(), play: (x) => player.play(x), end: () => player.end() },
+  };
+  let res = null;
+  try {
+    smokeRun = runSmoke(api, { short: SMOKE_SHORT, onRow: (_, r) => renderSmoke(r), onStatus: smokeStatus, shouldStop: () => smokeStop });
+    res = await smokeRun;
+    smokeLast = res;
+    try { localStorage.setItem(SMOKE_KEY, JSON.stringify(res)); } catch { /* shown only */ }
+  } catch (e) {
+    console.error(e);
+    smokeStatus(`The smoke test stopped: ${e.message}`);
+  }
+  smokeRun = null;
+  try { await chat.newChat(); } catch (e) { console.error(e); }   // the user's own chat again: their instructions, memory, voice
+  busy = false;
+  $("input").disabled = false;
+  syncComposer();
+  $("smokeRun").textContent = "Run the smoke test";
+  if (res) {
+    renderSmoke(res);
+    note(`Smoke test: ${res.passed} of ${res.total} passed${res.failed ? `, ${res.failed} failed` : ""}. The results are in Settings.`);
+  }
+  Object.assign(smokeHook, { running: false, result: res, text: res ? smokeText(res) : "" });
+  smokeHook.done++;
+};
+$("smokeCopy").onclick = async () => {
+  const text = smokeText(smokeLast);
+  try { await navigator.clipboard.writeText(text); smokeStatus("Copied."); }
+  catch {
+    smokeStatus("Copying is blocked here. Select the text below:");
+    $("smokeMsg").append(el("pre", "url", text));
+  }
+};
+$("smokeShare").onclick = async () => {
+  try { await navigator.share({ title: "LFM3-Omni-2B smoke test", text: smokeText(smokeLast) }); } catch { /* cancelled */ }
+};
+$("smokeSave").onclick = () => {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(smokeLast, null, 1)], { type: "application/json" }));
+  a.download = `lfm3-smoke-${(smokeLast.at || "").slice(0, 10)}.json`;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 };
 
 boot();
