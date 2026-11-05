@@ -15,6 +15,10 @@ Live at <https://lfm3-in-browser.toasterclub.workers.dev>.
 * **Live:** the camera button opens the camera full screen. Hold the orb to talk; the picture from when you start
   talking goes in with your words.
 * **Chat:** type, or add a photo. Turn on **Speak** in the top bar to hear typed answers too.
+* **Memory:** when a chat ends, the assistant reads what you said for facts and standing instructions worth
+  keeping. What you said out loud is transcribed first by the model's own speech recognition. A chat that ends
+  when you close the tab is learned at your next visit. The memory stays on the device; see or edit it from the
+  lightbulb in the top bar.
 * **On iPhone:** in Safari, Share → **Add to Home Screen** turns the site into an app with its own icon. The
   weights it has downloaded stay on the phone.
 

@@ -166,7 +166,7 @@ export class Chat {
   }
   restartFromPrefix() { this.model.restore(this.prefix); this.model.nout = 0; this.messages = []; this.pendingEnd = false; }
 
-  async send(text, { onText, maxNew = 512, shouldStop, media = null } = {}) {
+  async send(text, { onText, maxNew = 512, shouldStop, media = null, audio = null } = {}) {
     const m = this.model;
     const turn = (this.pendingEnd ? "<|im_end|>\n" : "") + turnUser(text, media);
     const ids = mediaIds(this.ids(turn), this.tok, media);
@@ -181,7 +181,7 @@ export class Chat {
     });
     const t2 = performance.now();
     const reply = this.decode(out);
-    this.messages.push({ role: "user", content: text, media: mediaList(media).map((x) => x.token) }, { role: "assistant", content: reply });
+    this.messages.push({ role: "user", content: text, media: mediaList(media).map((x) => x.token), audio }, { role: "assistant", content: reply });
     this.pendingEnd = true;
     const n = out.length;
     return { reply, stats: { promptTokens: ids.length, prefillMs: t1 - t0, prefillTokS: ids.length / ((t1 - t0) / 1000),
@@ -196,7 +196,7 @@ export class Chat {
     const media = opts.media || null;
     const turn = (this.pendingEnd ? "<|im_end|>\n" : "") + turnUser(text, media) + "<|mixed_start|>";
     const ids = mediaIds(this.ids(turn), this.tok, media);
-    return this.spokenReply(ids, { text, media: mediaList(media).map((x) => x.token), promptTokens: ids.length }, opts);
+    return this.spokenReply(ids, { text, media: mediaList(media).map((x) => x.token), promptTokens: ids.length, audio: opts.audio }, opts);
   }
 
   // A spoken turn streamed in while the user talks (push to talk), as the official prefill_audio does: openTurn()
@@ -228,7 +228,7 @@ export class Chat {
   async closeTurn(text, opts = {}) {
     const t = this.turn, ids = this.ids(`<|vision_end|>${text}<|im_end|>\n<|im_start|>assistant\n<think></think><|mixed_start|>`);
     this.turn = null;
-    return this.spokenReply(ids, { text, media: t.media, promptTokens: t.tokens + ids.length, streamed: t.rows }, opts);
+    return this.spokenReply(ids, { text, media: t.media, promptTokens: t.tokens + ids.length, streamed: t.rows, audio: opts.audio }, opts);
   }
 
   async spokenReply(ids, info, { onText, onAudio, shouldStop, depth, codec, greedy = false, maxFrames = 750, maxText = 400 } = {}) {
@@ -273,19 +273,42 @@ export class Chat {
     await play(true);
     const t2 = performance.now();
     const reply = this.decode(textIds);
-    this.messages.push({ role: "user", content: info.text, media: info.media }, { role: "assistant", content: reply });
+    this.messages.push({ role: "user", content: info.text, media: info.media, audio: info.audio || null }, { role: "assistant", content: reply });
     this.pendingEnd = true;
     return { reply, textIds, frames, seconds: samples / 24000,
       stats: { promptTokens: info.promptTokens, streamed: info.streamed || 0, prefillMs: t1 - t0, frames: frames.length, ms: t2 - t1, pos: m.pos } };
   }
 
+  // The user's speech as text, by the model itself (the model card's "Perform ASR in <language>." system prompt):
+  // emb holds the speech encoder's rows for the clip. It resets the model's state, so it runs between chats.
+  async asr(emb, rows, language = "English") {
+    const m = this.model, media = { token: "<|audio|>", rows };
+    m.reset();
+    m.setExternalEmbeddings(emb);
+    const ids = mediaIds(this.ids(systemBlock(`Perform ASR in ${language}.`) + turnUser("", media)), this.tok, media);
+    await m.prefill(ids, { sample: true });
+    return this.decode(await m.generate(160)).trim();
+  }
+
   // System 3's write path: one short extraction per user message of the finished chat (between chats, off the
-  // critical path), gated against the user's words, then the memory prefix is rebuilt.
-  async consolidate(onStep) {
-    const said = this.messages.filter((x) => x.role === "user").map((x) => x.content);
+  // critical path), gated against the user's words, then the memory prefix is rebuilt. A spoken message (one that
+  // carries its 16 kHz audio) is first heard: transcribe(message) returns its text (the app runs the speech encoder
+  // and asr()), and the extraction and the gate read that, as system3/experience.py does with ASR transcripts.
+  async consolidate(onStep, { messages = this.messages, transcribe = null } = {}) {
+    const said = messages.filter((x) => x.role === "user").slice(-24);
     const changes = [];
     const session = new Date().toISOString().slice(0, 10);
-    for (const msg of said) {
+    for (const [n, x] of said.entries()) {
+      let msg = (x.content || "").trim();
+      if (x.audio && transcribe) {
+        onStep?.({ phase: "hear", n, of: said.length });
+        try {
+          const heard = await transcribe(x);
+          x.heard = heard;
+          msg = msg ? `${msg} ${heard}` : heard;
+        } catch (e) { onStep?.({ phase: "hear-failed", n, error: e }); }
+      }
+      if (!msg) continue;
       const known = Object.keys(this.experience.facts).join(", ") || "none yet";
       let prompt = systemBlock(EXTRACT_SYSTEM + `\nKnown fact keys: ${known}`);
       for (const [q, a] of EXAMPLES) prompt += `<|im_start|>user\nMessage: ${q}<|im_end|>\n<|im_start|>assistant\n<think></think>${a}<|im_end|>\n`;
@@ -298,7 +321,7 @@ export class Chat {
         const c = this.experience.add(it, msg, session);
         if (c) changes.push({ change: c, ...it });
       }
-      onStep?.({ message: msg, raw });
+      onStep?.({ phase: "read", n, of: said.length, message: msg, raw });
     }
     this.experience.save();
     await this.newChat();

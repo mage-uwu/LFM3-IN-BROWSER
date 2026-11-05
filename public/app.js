@@ -215,6 +215,7 @@ async function load(source) {
       : ` This browser could not keep a copy (${src.saveError?.message || "storage unavailable"}), so the next load downloads it again.`;
     const local = model.fromCache || (src && src.fromDevice === WEIGHTS.chunks.length);
     note(`Ready in ${s} s${local ? ", from this device" : ""}.${kept}${mem}`);
+    await learnLastVisit();
   } catch (e) {
     console.error(e);
     const oom = /memory|allocat|lost/i.test(String(e.message));
@@ -438,8 +439,15 @@ $("speakBtn").onclick = async () => {
       return;
     }
   }
-  await chat.newChat();
-  n.textContent = on ? "Spoken replies on: the answers are read aloud as they are written. New chat started." : "Spoken replies off. New chat started.";
+  const msgs = [...earlier, ...chat.messages];
+  busy = true;
+  syncComposer();
+  let learned = "";
+  try { const ch = await learnFrom(msgs, (t) => { n.textContent = t; }); if (ch?.length) learned = ` Remembered: ${told(ch)}.`; }
+  catch (e) { console.error(e); await chat.newChat(); }
+  busy = false;
+  syncComposer();
+  n.textContent = (on ? "Spoken replies on: the answers are read aloud as they are written. New chat started." : "Spoken replies off. New chat started.") + learned;
 };
 
 // several media items in one turn: their rows go back to back into one buffer, in the turn's order
@@ -511,7 +519,7 @@ async function send() {
       player ||= makePlayer();
       player.begin();
       face("thinking");
-      const res = await chat.speak(text || (vc ? "" : "Describe this image."), { media, depth: t.depth, codec: t.codec, onText,
+      const res = await chat.speak(text || (vc ? "" : "Describe this image."), { media, depth: t.depth, codec: t.codec, onText, audio: vc?.samples || null,
         onAudio: (a) => { if (FACE.state !== "speaking") face("speaking"); player.play(a); }, shouldStop: () => stopFlag });
       player.end();
       faceAfterPlayback();
@@ -520,7 +528,7 @@ async function send() {
       line = `${seen}${s.promptTokens} prompt tokens  |  ${res.seconds.toFixed(1)} s of speech in ${(s.ms / 1000).toFixed(1)} s ` +
         `(${r(s.frames / (s.ms / 1000))} frames/s, 12.5 is real time)  |  context ${s.pos}`;
     } else {
-      const { reply, stats } = await chat.send(text || (vc ? "" : "Describe this image."), { media, onText, shouldStop: () => stopFlag });
+      const { reply, stats } = await chat.send(text || (vc ? "" : "Describe this image."), { media, onText, shouldStop: () => stopFlag, audio: vc?.samples || null });
       out.textContent = reply;
       line = `${seen}${stats.promptTokens} prompt tokens · ${r(stats.prefillTokS)} tok/s  |  ${stats.newTokens} tokens · ${r(stats.decodeTokS)} tok/s  |  context ${stats.pos}`;
     }
@@ -528,6 +536,7 @@ async function send() {
     st.className = "stats";
     st.textContent = line;
     out.append(st);
+    savePending();
   } catch (e) {
     out.innerHTML = `<span class="err">${e.message}</span>`;
   }
@@ -665,7 +674,7 @@ async function talkStart(live) {
     const pic = PT.frame && VISION ? await encodePicture(PT.frame) : null;
     if (!live) $("input").placeholder = "Ask anything";
     await spokenChat();
-    if (model.pos + (pic?.rows || 0) + 375 + 1000 > model.ctx) { chat.restartFromPrefix(); note("The conversation filled the model's context, so it starts over from here."); }
+    if (model.pos + (pic?.rows || 0) + 375 + 1000 > model.ctx) contextFull();
     while (PT.state === "recording" && PT.mel.seconds < MIN_S) await sleep(40);   // a stray tap opens no turn
     if (PT.mel.seconds < MIN_S) return false;
     await chat.openTurn(pic);
@@ -735,7 +744,7 @@ async function talkEnd() {
   let first = 0;
   try {
     player.begin();
-    const res = await chat.closeTurn("", { depth: talk.depth, codec: talk.codec, maxFrames: 750,
+    const res = await chat.closeTurn("", { depth: talk.depth, codec: talk.codec, maxFrames: 750, audio: PT.mel.x.slice(0, PT.mel.n),
       onText: (t) => { out.textContent = t; if (live) caption(t); $("main").scrollTop = $("main").scrollHeight; },
       onAudio: (x) => {
         if (!first) { first = performance.now() - PT.endT; hook.firstAudioMs = Math.round(first); if (live) liveState("speaking", "Speaking · hold to interrupt"); else face("speaking"); }
@@ -753,6 +762,7 @@ async function talkEnd() {
     if (live) caption(res.reply);
     hook.turns++;
     hook.reply = res.reply;
+    savePending();
   } catch (e) {
     console.error(e);
     out.innerHTML = `<span class="err">${e.message}</span>`;
@@ -899,7 +909,7 @@ async function clipTurn(samples, frame) {
   hook.heard++;
   await spokenChat();
   const rows = parts.reduce((s, p) => s + p.rows, 0);
-  if (model.pos + rows + 1000 > model.ctx) { chat.restartFromPrefix(); note("The conversation filled the model's context, so it starts over from here."); }
+  if (model.pos + rows + 1000 > model.ctx) contextFull();
   model.setExternalEmbeddings(joinRows(parts));
   const ub = bubble("user", "");
   if (frame) ub.append(thumbnail(frame));
@@ -909,7 +919,7 @@ async function clipTurn(samples, frame) {
   ub.append(tag);
   const out = bubble("assistant", "…");
   player.begin();
-  const res = await chat.speak("", { media, depth: talk.depth, codec: talk.codec, maxFrames: 750,
+  const res = await chat.speak("", { media, depth: talk.depth, codec: talk.codec, maxFrames: 750, audio: samples,
     onText: (t) => { caption(t); out.textContent = t; },
     onAudio: (x) => { player.play(x); liveState("speaking", "Speaking"); },
     shouldStop: () => stopFlag || !L.on });
@@ -922,6 +932,7 @@ async function clipTurn(samples, frame) {
   caption(res.reply);
   hook.turns++;
   hook.reply = res.reply;
+  savePending();
 }
 async function clipFrame(file) { // the clip's middle frame
   const url = URL.createObjectURL(file);
@@ -989,6 +1000,63 @@ $("liveFlip").onclick = async () => { L.facing = L.facing === "user" ? "environm
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && L.on) liveClose(); });
 
 // ---- memory (System 3) ---------------------------------------------------------------------------------------
+// The memory learns from each conversation by itself: when a new chat starts (the button, or turning Speak on or
+// off), and, for a conversation that simply ended with the tab, at the next visit. The conversation so far is kept
+// on the device as it goes ("chat/pending", with each spoken turn's 16 kHz audio), and turns the model's context no
+// longer holds wait in `earlier`. A spoken turn is heard first: the speech encoder and the model's own speech
+// recognition turn it into text, which the extraction reads (Chat.consolidate).
+const ASR_LANG = { en: "English", de: "German", fr: "French", es: "Spanish", it: "Italian", pt: "Portuguese", ja: "Japanese", ko: "Korean",
+  zh: "Chinese", nl: "Dutch", pl: "Polish", sv: "Swedish", da: "Danish", fi: "Finnish", el: "Greek", he: "Hebrew", tr: "Turkish",
+  ar: "Arabic" }[(navigator.language || "en").slice(0, 2).toLowerCase()] || "English";
+let earlier = [];   // this conversation's turns that the model's context no longer holds, still to be learned
+const learnable = (msgs) => msgs.filter((x) => x.role === "user" && ((x.content || "").trim() || x.audio)).length;
+async function savePending() { // after each turn: the conversation so far, kept on the device
+  const msgs = [...earlier, ...chat.messages];
+  let keep = 24;   // the last 24 spoken turns keep their audio (about 2 MB each at most)
+  const rows = msgs.slice().reverse().map(({ role, content, media, audio }) => ({ role, content, media, audio: audio && keep-- > 0 ? audio : null })).reverse();
+  try { await store.put("chat/pending", { at: new Date().toISOString(), messages: rows }); } catch { /* no storage: learned only at New chat */ }
+}
+async function dropPending() { try { await store.del("chat/pending"); } catch { /* none */ } }
+async function transcribe(x) { // a spoken turn's words, by the model's own speech recognition
+  const enc = await ensureAudio(() => {});
+  const lm = logMel(x.audio);
+  const o = await enc.encode(lm.mel, lm.frames);
+  return chat.asr(o.emb, o.rows, ASR_LANG);
+}
+const told = (changes) => changes.map((c) => (c.type === "fact" ? `${c.key} = ${c.value}` : c.text)).join("; ");
+// learn from a finished conversation, then start the next chat with the updated memory. report(text) shows progress.
+async function learnFrom(msgs, report = () => {}) {
+  if (!chat.useMemory || !learnable(msgs)) { await chat.newChat(); earlier = []; await dropPending(); return null; }
+  const changes = await chat.consolidate((s) => {
+    if (s.phase === "hear") report(`Listening back to what you said (${s.n + 1} of ${s.of})…`);
+    else if (s.phase === "read") report(`Reading what you said (${s.n + 1} of ${s.of})${s.message ? `: “${s.message.slice(0, 48)}${s.message.length > 48 ? "…" : ""}”` : ""}`);
+  }, { messages: msgs, transcribe: SPEECH ? transcribe : null });
+  earlier = [];
+  await dropPending();
+  return changes;
+}
+// the user goes on while the model's context starts over: the turns it held are learned later
+function contextFull() {
+  earlier.push(...chat.messages);
+  chat.restartFromPrefix();
+  note("The conversation filled the model's context, so it starts over from here. What you said is still remembered when this chat ends.");
+}
+async function learnLastVisit() { // a conversation from the last visit that ended with the tab
+  let pend = null;
+  try { pend = await store.get("chat/pending"); } catch { /* no storage */ }
+  if (!pend?.messages || !learnable(pend.messages)) return;
+  busy = true;
+  $("input").disabled = true;
+  syncComposer();
+  const n = note("Remembering your last conversation…");
+  try {
+    const changes = await learnFrom(pend.messages, (t) => { n.textContent = t; });
+    n.textContent = changes?.length ? `From your last conversation, I remembered: ${told(changes)}.` : "Your last conversation had nothing new to remember.";
+  } catch (e) { console.error(e); n.textContent = `Could not learn from your last conversation (${e.message}).`; await chat.newChat(); }
+  busy = false;
+  $("input").disabled = false;
+  syncComposer();
+}
 function renderNotes() {
   const e = chat.experience;
   const box = $("notes");
@@ -1003,32 +1071,42 @@ function renderNotes() {
   e.preferences.forEach((p, i) => add(`Instruction: ${p.text}`, () => e.preferences.splice(i, 1)));
   for (const [k, v] of Object.entries(e.facts)) add(`${k}: ${v.value}${v.history.length ? ` (was ${v.history.map((h) => h[0]).join(", ")})` : ""}`, () => delete e.facts[k]);
   e.lessons.forEach((p, i) => add(`Lesson: ${p.text}`, () => e.lessons.splice(i, 1)));
-  if (e.empty()) box.innerHTML = `<p class="muted">Nothing yet. Chat, then tap “Learn from this chat”.</p>`;
+  if (e.empty()) box.innerHTML = `<p class="muted">Nothing yet. Talk or chat; when a chat ends, what you said is read for things worth remembering.</p>`;
 }
 $("memBtn").onclick = () => { renderNotes(); $("memMsg").textContent = ""; $("memory").classList.add("open"); };
 $("memClose").onclick = () => $("memory").classList.remove("open");
 $("useMem").onchange = () => { chat.useMemory = $("useMem").checked; };
-$("learn").onclick = async () => {
-  if (busy) return;
-  if (!chat.messages.length) { $("memMsg").textContent = "Chat first: memories are learned from what you write."; return; }
+// a new chat: the finished one is learned first, then the next starts with the updated memory
+async function freshChat({ report = null } = {}) {
+  if (busy || PT.state !== "idle") return;
+  const msgs = [...earlier, ...chat.messages];
   busy = true;
-  $("memMsg").textContent = "Reading your messages…";
-  const changes = await chat.consolidate((s) => { $("memMsg").textContent = `Read: “${s.message.slice(0, 60)}”`; });
-  busy = false;
-  $("memMsg").textContent = changes.length ? `Learned ${changes.length}: ` + changes.map((c) => c.type === "fact" ? `${c.key} = ${c.value}` : c.text).join("; ") : "Nothing new to remember.";
-  renderNotes();
-  $("msgs").innerHTML = "";
-  note("New chat, with what I learned from the last one.");
-};
-async function freshChat() {
-  if (busy) return;
-  await chat.newChat();
-  $("msgs").innerHTML = "";
+  syncComposer();
   $("memory").classList.remove("open");
+  $("msgs").innerHTML = "";
+  const n = learnable(msgs) && chat.useMemory ? note("Remembering this conversation…") : null;
+  const show = (t) => { if (n) n.textContent = t; report?.(t); };
+  try {
+    const changes = await learnFrom(msgs, show);
+    if (n) n.textContent = changes?.length ? `Remembered: ${told(changes)}.` : "Nothing new to remember from the last conversation.";
+    report?.(changes?.length ? `Learned ${changes.length}: ${told(changes)}` : "Nothing new to remember.");
+  } catch (e) {
+    console.error(e);
+    if (n) n.textContent = `Could not learn from that conversation (${e.message}).`;
+    await chat.newChat();
+  }
+  busy = false;
+  syncComposer();
   syncHello();
 }
-$("newChat").onclick = freshChat;
-$("newChatTop").onclick = freshChat;
+$("learn").onclick = async () => {
+  if (busy) return;
+  if (!learnable([...earlier, ...chat.messages])) { $("memMsg").textContent = "Talk or chat first: memories are learned from what you say."; return; }
+  await freshChat({ report: (t) => { $("memMsg").textContent = t; renderNotes(); } });
+  renderNotes();
+};
+$("newChat").onclick = () => freshChat();
+$("newChatTop").onclick = () => freshChat();
 $("copyMem").onclick = async () => {
   const text = JSON.stringify(chat.experience, null, 1);
   try { await navigator.clipboard.writeText(text); $("memMsg").textContent = "Copied."; }
@@ -1049,6 +1127,8 @@ $("clearMem").onclick = async () => {
   $("clearMem").textContent = "Forget everything";
   chat.experience = new Experience();
   chat.experience.save();
+  earlier = [];
+  await dropPending();
   renderNotes();
   await chat.newChat();
   $("memMsg").textContent = "Forgotten.";
