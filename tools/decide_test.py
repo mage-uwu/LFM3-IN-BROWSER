@@ -32,8 +32,9 @@ def compare(answers, case):
         a, want = answers[name], case["probabilities"][i]
         if a["type"] == "noul":
             mine = [a["noul"], 1 - a["noul"]]
-        elif "choices" in a:  # several: each option's P(yes) (the reference lists them flat too)
+        elif "choices" in a:  # several: each option's P(yes) after the release's "multiple" table, as its answer gives them
             mine = list(a["probabilities"].values())
+            want = list(case["answers"][name]["probabilities"].values())
         else:
             mine = list(a["probabilities"].values())
         out[name] = round(max(abs(x - y) for x, y in zip(mine, want)), 4)
