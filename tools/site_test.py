@@ -34,7 +34,8 @@ def main():
     res = {"base": base, "files": {}, "console_errors": [], "page_errors": []}
     for f in FILES:
         try:
-            with urllib.request.urlopen(f"{base}/{f}", timeout=60) as r:
+            req = urllib.request.Request(f"{base}/{f}", headers={"User-Agent": "Mozilla/5.0 (lfm3-in-browser site test)"})
+            with urllib.request.urlopen(req, timeout=60) as r:   # Cloudflare may refuse Python's default user agent
                 res["files"][f] = [r.status, len(r.read())]
         except Exception as e:  # noqa: BLE001 - record any failure
             res["files"][f] = str(e)[:120]

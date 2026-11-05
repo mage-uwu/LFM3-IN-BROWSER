@@ -1,0 +1,32 @@
+{
+ "base": "https://lfm3-in-browser.toasterclub.workers.dev",
+ "files": {
+  "licenses/LFM-Open-License-v1.0.txt": "HTTP Error 403: Forbidden",
+  "licenses/Apache-2.0.txt": "HTTP Error 403: Forbidden",
+  "licenses/NOTICE.txt": "HTTP Error 403: Forbidden",
+  "weights/NOTICE.txt": "HTTP Error 403: Forbidden",
+  "og.png": "HTTP Error 403: Forbidden",
+  "manifest.webmanifest": "HTTP Error 403: Forbidden",
+  "weights/gptq-522fbf23560c/chunks.json": "HTTP Error 403: Forbidden"
+ },
+ "console_errors": [],
+ "page_errors": [],
+ "example_load_s": 102.1,
+ "example_status": "Ready.",
+ "example_answer_s": 690.3,
+ "example_answer": "WebGPU is a modern, open standard for running GPU-accelerated code in the browser, providing a unified API for drawing, rendering, and computing on the GPU.\n\n36 tokens at 0.1 tokens/s",
+ "title": "LFM3 in the Browser",
+ "app_load_s": 87.2,
+ "about_credits": true,
+ "about_links": [
+  "licenses/LFM-Open-License-v1.0.txt",
+  "licenses/Apache-2.0.txt",
+  "licenses/NOTICE.txt",
+  "https://github.com/mage-uwu/LFM3-IN-BROWSER",
+  "examples/chat.html"
+ ],
+ "instructions_stored": "Always answer in French.",
+ "app_answer_s": 240.1,
+ "app_answer": "La capitale de l'Italie est Rome.\n23 prompt tokens \u00b7 0.2 tok/s | 9 tokens \u00b7 0.1 tok/s | context 42",
+ "note": "Run on 2026-11-05 in headless Chromium on SwiftShader (CPU), so the speeds are not a GPU's. The file checks' 403s came from Cloudflare refusing Python's default user agent; the browser loaded the same files, and site_test.py now sends a browser-like one."
+}
