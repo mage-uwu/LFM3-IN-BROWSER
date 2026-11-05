@@ -208,6 +208,38 @@ await chat.closeTurn("", { depth, codec, onAudio: play, audio: mel.x.slice(0, me
 
 The model ends up in exactly the state that `speak()` with the whole clip would give.
 
+## `d1.js`: decisions (LiquidAI/d1-*)
+
+A port of the d1 release's own runner. Named questions over a state (text, any JSON value, or nothing but media)
+are answered with calibrated probabilities in one forward pass of `LFM3.decide()`, with no generated tokens. The
+model is an `LFM3` loaded with d1's weights (`d1-weights.js`: `D1_WEIGHTS`, `D1_VISION`, `D1_AUDIO`).
+
+```js
+import { Decider } from "./engine/d1.js";
+const calibration = await (await fetch("d1/calibration.json")).json();
+const d1 = new Decider(model, tokenizer, { calibration, setSize: calibration.set_size, lead: "<think></think>" });
+const { answers, probabilities, usage } = await d1.ask("I was charged twice. Please refund one charge.", {
+  refund: { type: "noul", instructions: "Is the customer asking for a refund?" },
+  team: { type: "choice", instructions: "Which team?", criteria: { billing: "Charges", shipping: "Parcels" } },
+  topics: { type: "choice", multiple: true, instructions: "Which topics?", criteria: { billing: null, delivery: null } },
+  anger: { type: "score", instructions: "How upset?", criteria: ["Calm", "Annoyed", "Angry"] },
+});
+// answers.refund   -> { type: "noul", noul: 0.94 }                          P(yes)
+// answers.team     -> { type: "choice", choice: "billing", confidence, probabilities }
+// answers.topics   -> { type: "choice", choices: ["billing"], probabilities }  each option yes or no
+// answers.anger    -> { type: "score", score: 1, confidence, probabilities, legend }  the median level
+```
+
+- Question types: `noul` (yes or no), `choice` (one of named options; with `multiple: true`, each option yes or
+  no), `score` (2 to 10 levels, lowest first). The release's other types (`number`, `date`, boxes and so on) are not
+  ported yet and throw.
+- Media: `ask(state, questions, { media: { items: [{ token: "<|image|>" | "<|audio|>", rows }], emb } })`, with
+  `rows` and `emb` from `Vision.encode()` or `Audio.encode()` run on d1's own encoder weights.
+- Up to `setSize` (16) questions share one pass; more run as further passes over the same state. `ask()` resets the
+  model's position when it is done.
+- Lower level: `LFM3.decide(ids, { state, groups, slots })` runs a packed sequence under d1's "set" attention (the
+  state sees every token, each question sees the state and itself) and returns the logits at `slots`.
+
 ## Other modules
 
 | Module | Exports |
@@ -215,6 +247,7 @@ The model ends up in exactly the state that `speak()` with the whole clip would 
 | `kernels.js` | The WGSL sources: `gemvSource(quant)`, `embedSource`, the norms, attention, RoPE, arg-max, and on-GPU quantization (`quantizeSource`, `BF16_TO_F32`). |
 | `pngbytes.js` | `pngPayload(bytes, n)`, and `prefetched(chunks, loadOne, { ahead })`. |
 | `store.js` | `store` (IndexedDB key-value: `get`, `put`, `del`, `keys`, `delWhere`), `persist()`, `room()`. |
+| `d1.js` | `Decider`, and `asQuestion`, `stateBlock`, `plain`, `through` (the prompt and calibration helpers). |
 | `loader.js` | `loadLFM3`, `loadVision`, `loadAudio`, `loadSpeech`, `weightSet`, `cachedTokenizer`, `ensureWeights`, `fetchBytes`. |
 | `index.js` | Re-exports the public API of every module above. |
 | `listen.js` | `MicCapture`, `Resampler`, `resample16k`. |

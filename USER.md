@@ -48,6 +48,12 @@ answer out loud, entirely on your own device. It is a reference implementation b
 - **The top bar** names the model and shows two tags: your GPU, as the browser names it (for example "apple
   metal-3"), and the weights' precision ("4-bit").
 - **New chat:** the **pencil** button.
+- **Decide** ([decide.html](https://lfm.toasterclub.com/decide.html), linked from the setup card and About): a
+  separate page for Liquid's d1-Omni-2B decision model. Put text or JSON in the box, or add a photo or a recording,
+  then write questions: **Yes / no**, **One of**, **Any of** (each option yes or no), or **Score** (levels, lowest
+  first). **Decide** answers them all at once, with a bar for each option's probability. **Try one** fills in an
+  example. It downloads its own 0.93 GB model the first time (plus 0.19 GB for photos and 0.06 GB for recordings)
+  and keeps a copy, separate from the chat's; **Storage and about** removes it.
 
 ## Privacy
 

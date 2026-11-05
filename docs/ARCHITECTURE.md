@@ -157,6 +157,22 @@ Retrieval-augmented generation, kept separate for each chat:
 - **Your own instructions:** an optional system prompt (Settings) replaces the default base prompt; in voice mode
   the speech instruction always goes last.
 
+## Decisions (`d1.js`, `LFM3.decide`, `decide.html`)
+
+LiquidAI's d1-Omni-2B has the same tensors as LFM3-Omni-2B and its own trained values (the image and speech encoders
+changed too), so the engine runs it unchanged except for one thing: d1's "set" attention. The prompt is the
+release's ChatML: no system turn, the state (text, or indented JSON), "QUESTION:", then each question with its reply
+format, packed one after another. On the full-attention layers a state token sees every token both ways, and a
+question's tokens see the state and their own question, both ways (`ATTN_MASKED` in `kernels.js`, with each token's
+group in a buffer). Convolution and sliding-window layers stay causal, as in the release. Because a state token needs
+the keys of the tokens after it, `LFM3.decide` runs each layer over the whole packed sequence, chunk by chunk,
+before the next layer. It returns the logits only at the answer slots, and `d1.js` reads the yes/no, letter or
+digit tokens there, divides by the release's temperature, and applies its calibration tables.
+
+The site ships d1's language model as round-to-nearest 4-bit with a clip search per group (`gptq_export.py --rtn`):
+on d1's test cases it stays closer to the bf16 runner than GPTQ does. `decide.html` is a separate page with its own
+weight list (`d1-weights.js`) and storage families (`d1w/`, `d1v/`, `d1a/`), so it does not touch the chat's copy.
+
 ## The app (`app.js`, `index.html`)
 
 The app is one page. Its parts:

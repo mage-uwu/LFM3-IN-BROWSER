@@ -33,6 +33,8 @@ Each test has a PyTorch reference script that writes into `work/`, and a Node te
 | Speech encoder | `python3 tools/audio_ref.py --out work/audio` and `audio_export.py` | `node tools/node_audio_test.mjs --dir work/audio --src …` | `result_audio.json` |
 | Spoken replies: depth decoder, codec, the interleaved loop; our speech transcribed back | `python3 tools/speech_ref.py --out work/speech` and `speech_export.py` | `node tools/node_speech_test.mjs --dir work/speech --audio work/audio --src …` | `result_speech.json` |
 | Push to talk: a streamed turn against the whole clip | the speech and audio exports | `node tools/node_ptt_test.mjs --clip work/voice16k.f32 --audio work/audio --speech work/speech --src …` | `result_ptt.json` |
+| d1-Omni-2B: prompt, set attention, readout, calibration | `python3 tools/d1_ref.py --out work/d1_ref.json` (the release's own runner, bf16) | `node tools/node_d1_test.mjs --ref work/d1_ref.json --lm-png work/d1lm --lm-manifest work/d1lm/manifest.json --vision work/d1vision --audio work/d1audio --audio-quant q4g64 --media work/d1media` | `result_d1.json` |
+| A change to `lfm3.js` against the version before it | the site's chat weights | `node tools/node_chat_check.mjs --engine <dir> --lm-png <parts> --lm-manifest <m.json> --out ids.json`, once per engine; the replies must be identical | (printed) |
 | Tokenizer and chat template | `python3 tools/tok_ref.py --out work/tok_ref.json` | `node tools/tok_test.mjs work/tok_ref.json public` | (printed) |
 
 The push-to-talk test needs a 16 kHz clip as raw float32 (`work/voice16k.f32`). This writes the LibriSpeech
@@ -68,6 +70,13 @@ python3 tools/fake_media.py --wav work/live.wav --y4m work/house.y4m
 ```bash
 python3 tools/ui_test.py --page "/index.html?maxpx=65536" --assets --faces --talk --live --fake-audio work/live.wav --fake-video work/house.y4m --out out/ui
 ```
+
+## The decision page
+
+`tools/decide_test.py --ref work/d1_ref.json` opens `decide.html` in Chromium on a 390 x 844 screen, asking for a
+hardware WebGPU adapter first and falling back to SwiftShader. It loads d1, runs every example on the page, and
+compares the four that reproduce the release's test cases with its runner. It writes `result_decide.json` and a
+screenshot per example, and prints `DECIDE_TEST` with the largest difference.
 
 ## A deployed site
 

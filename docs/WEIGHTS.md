@@ -55,6 +55,26 @@ python3 tools/audio_export.py --out work/audio --quant q4g64
 python3 tools/speech_export.py --out work/speech --quant q8 q4g64
 ```
 
+Decide's sets come from LiquidAI/d1-Omni-2B with the same exporters (`--repo LiquidAI/d1-Omni-2B`). Its language
+model is plain round-to-nearest 4-bit (`--rtn`: no calibration text, about a minute on a GPU), which matched the
+release's runner better than GPTQ:
+
+```bash
+python3 tools/gptq_export.py --repo LiquidAI/d1-Omni-2B --rtn --out work/d1rtn
+```
+
+```bash
+python3 tools/vision_export.py --repo LiquidAI/d1-Omni-2B --quant q8 --out work/d1vision
+```
+
+```bash
+python3 tools/audio_export.py --repo LiquidAI/d1-Omni-2B --quant q4g64 --out work/d1audio
+```
+
+They are packed with `pack_weights.py --js d1-weights.js --set d1 … --set d1vision … --set d1audio …`, which
+leaves the chat's sets and `weights.js` alone. The calibration (`public/d1/calibration.json`) is the release's
+`calibration.json` with its `d1_set_size`.
+
 Pack each set into PNG parts of 14.5 MiB, below the 25 MiB that Cloudflare Workers serve per file. For the
 language model, `gptq_export.py` writes two versions of the embedding table: `embed_gptq.bin` and `embed_rtn.bin`.
 Its `manifest.json` reports their held-out perplexities, 12.73 and 12.94 for the shipped weights, and the shipped

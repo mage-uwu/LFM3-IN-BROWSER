@@ -40,6 +40,10 @@ affiliated with Liquid AI.
 - **Smoke test.** Settings runs every workflow once on your device and measures it. That covers text (time to
   the first token, prefill and decode tokens per second), a photo, a spoken reply, speech recognition, and a
   push-to-talk turn with a camera picture. Copy, share or save the results.
+- **Decide ([decide.html](https://lfm.toasterclub.com/decide.html)).** LiquidAI's d1-Omni-2B decision model on its
+  own page. Give it a message, JSON, a photo or a recording, and named questions: yes or no, one of, any of, or a
+  score. Every question is answered at once with calibrated probabilities, in one pass and without generating
+  text. Built for phones; the model is 0.93 GB, plus 0.19 GB for photos and 0.06 GB for recordings.
 - **Installable.** Add it to the iPhone home screen. The weights stay in the browser's storage after the first
   load.
 
@@ -125,6 +129,7 @@ through Dawn, Chrome's WebGPU implementation, in Node.js. The raw numbers are in
 | Image encoder, 8-bit | Its description of a test picture matches PyTorch for all 48 of 48 tokens. 768 patches encode in 0.4 s. |
 | Speech encoder | The log-mel front end matches the reference to 0.00013, and a LibriSpeech clip transcribes word for word. 5.9 s of speech encodes in 30 ms. |
 | Spoken replies | The text matches a deterministic PyTorch run. The 8-bit codec reaches 33.6 dB SNR against PyTorch's audio. 46.5 speech frames per second is 3.7× real time, and the model transcribes our speech back exactly. |
+| d1-Omni-2B (Decide), 4-bit | On the release's own test cases (a support ticket, JSON, a picture, a recording), every answer matches its runner and every probability is within 0.043. GPTQ was worse here (0.085, and it flipped a close call), so d1 ships plain 4-bit rounding. 0.25 to 1 s per case on the A40. |
 | Push to talk | A turn streamed in while "speaking" gives exactly the same answer as the whole clip: 24 of 24 text tokens and 89 of 89 speech frames, and the follow-up turn too. The first audio comes 164 ms after letting go, against 389 ms without streaming. |
 
 On a phone, speed depends on its GPU, and the app shows the real numbers under every reply.
@@ -150,11 +155,14 @@ sent anywhere by the test itself. To publish your device's numbers, post the cop
 ```
 public/              the site: deploy this folder
   index.html app.js    the app
+  decide.html decide.js  Decide: the d1-Omni-2B decision model
   engine/              the engine: WebGPU + WGSL, plain ES modules (docs/API.md)
     loader.js            the happy path: loadLFM3(), loadVision(), loadAudio(), loadSpeech()
+    d1.js                the d1 decision models: Decider.ask(state, questions)
     index.js             the whole engine in one import
   examples/chat.html   a minimal page that uses the engine
-  weights.js           the weight sets' tensor lists and part URLs
+  weights.js           the weight sets' tensor lists and part URLs (d1-weights.js: Decide's)
+  d1/calibration.json  d1-Omni-2B's calibration, from the release
   weights/<set-id>/    the model's weights as PNG parts, with chunks.json (sha256 of every part)
   lfm3-tokenizer-*     the tokenizer
   licenses/            the licenses and notices the site serves
