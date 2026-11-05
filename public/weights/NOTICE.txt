@@ -1,7 +1,8 @@
-These files are derived from LFM3-Omni-2B by Liquid AI, Inc. (https://huggingface.co/LiquidAI/LFM3-Omni-2B) and
+These files are derived from LFM3-Omni-2B (https://huggingface.co/LiquidAI/LFM3-Omni-2B) and, in the folders whose
+names start with d1, from d1-Omni-2B (https://huggingface.co/LiquidAI/d1-Omni-2B), both by Liquid AI, Inc., and
 are licensed under the LFM Open License v1.0 (../licenses/LFM-Open-License-v1.0.txt).
 
-They were changed from the original by Toaster Club LLC: quantized (GPTQ 4-bit for the language model; 4-bit or
+They were changed from the original by Toaster Club LLC: quantized (GPTQ 4-bit for LFM3-Omni-2B's language model, round-to-nearest 4-bit for d1-Omni-2B's; 4-bit or
 8-bit round-to-nearest with per-group scales for the other parts), reordered into the engine's tensor layout, and
 packed into PNG byte containers. Each folder's chunks.json gives the sha256 of every part's payload.
 

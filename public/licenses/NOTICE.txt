@@ -21,6 +21,10 @@ The LFM Open License v1.0 applies to these files and to any use of them, includi
 (Section 5): rights for commercial use are granted only to individuals and organizations below US$10,000,000 in
 annual revenue; the threshold does not apply to qualified non-profit organizations' non-commercial or research use.
 
+The decision page (decide.html) runs d1-Omni-2B by Liquid AI, Inc. (https://huggingface.co/LiquidAI/d1-Omni-2B), whose
+weights (public/weights/d1*) and calibration table (public/d1/calibration.json) are used under the same LFM Open
+License v1.0. engine/d1.js is a port of the release's own runner, written for this project.
+
 LFM, LFM3 and Liquid AI are names of Liquid AI, Inc. They are used here only to describe the origin of the model.
 This project is not affiliated with, sponsored by or endorsed by Liquid AI, Inc.
 

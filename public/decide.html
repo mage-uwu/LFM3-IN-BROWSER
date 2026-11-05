@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>d1-Omni-2B Decide</title>
+<meta name="description" content="LiquidAI's d1-Omni-2B decision model on your own GPU with WebGPU: named questions over a message, JSON, a photo or a recording, answered with calibrated probabilities. Nothing leaves the device. Implementation by Mage / Toaster Club LLC.">
+<meta name="author" content="Mage / Toaster Club LLC">
+<meta property="og:type" content="website">
+<meta property="og:title" content="d1-Omni-2B in the Browser">
+<meta property="og:description" content="Decisions with calibrated probabilities on your own GPU: text, JSON, photos and recordings. Nothing leaves the device.">
+<meta property="og:url" content="https://lfm.toasterclub.com/decide.html">
+<meta property="og:image" content="https://lfm.toasterclub.com/og.png">
+<link rel="icon" href="./icon-180.png">
+<link rel="apple-touch-icon" href="./icon-180.png">
+<meta name="theme-color" content="#ffffff">
+<style>
+  /* The chat page's quiet white look, as a one-column workbench: what the model looks at, the questions, Decide.
+     Each answer sits under its question as bars of calibrated probability. Built for a phone first. */
+  :root {
+    color-scheme: light;
+    --bg: #ffffff; --fg: #111214; --muted: #74777f; --faint: #a3a6ad; --line: #ececee; --soft: #f4f4f5;
+    --ink: #111214; --ink-fg: #ffffff; --accent: #2f6bff; --warn: #b4441c; --ok: #1d8a4e; --bar: #dfe6ff;
+    --sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --gutter-l: max(16px, env(safe-area-inset-left, 0px));
+    --gutter-r: max(16px, env(safe-area-inset-right, 0px));
+    --col: 40rem;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.55 var(--sans); -webkit-font-smoothing: antialiased;
+         padding-bottom: env(safe-area-inset-bottom, 0px); }
+  svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  button { font: 500 15px/1.2 var(--sans); color: var(--fg); background: transparent; border: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  button:disabled { opacity: 0.35; cursor: default; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  input, textarea, select { font: 16px/1.45 var(--sans); color: var(--fg); background: var(--bg); border: 1px solid var(--line);
+         border-radius: 12px; padding: 10px 12px; width: 100%; min-width: 0; }
+  textarea { resize: vertical; }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: #c9ccd3; }
+  .pill { border-radius: 999px; padding: 11px 20px; background: var(--ink); color: var(--ink-fg); }
+  .pill.ghost { background: transparent; color: var(--fg); border: 1px solid var(--line); }
+  .chip { border: 1px solid var(--line); border-radius: 999px; padding: 7px 13px; font-size: 14px; color: var(--muted);
+          display: inline-flex; gap: 7px; align-items: center; }
+  .chip:hover:not(:disabled) { background: var(--soft); }
+  .icon { width: 36px; height: 36px; border-radius: 999px; display: inline-grid; place-items: center; }
+  .icon:hover:not(:disabled) { background: var(--soft); }
+  .muted { color: var(--muted); font-size: 14.5px; margin: 0; }
+  .err { color: var(--warn); }
+
+  header { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); display: flex; align-items: center; gap: 8px;
+           padding-block: 10px 8px; padding-left: var(--gutter-l); padding-right: var(--gutter-r); border-bottom: 1px solid transparent; }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+  header.scrolled { border-bottom-color: var(--line); }
+  .brand { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; line-height: 1.2; }
+  .brand h1 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase; }
+  .tags { display: flex; gap: 5px; min-width: 0; }
+  .tag { font: 500 11px/1 var(--mono); color: var(--muted); background: var(--soft); border-radius: 999px; padding: 4px 8px 3.5px;
+         white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .tag.flat { flex: none; }
+  .navlink { font-size: 14px; color: var(--muted); text-decoration: none; border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; white-space: nowrap; }
+
+  main { padding-block: 14px 48px; padding-left: var(--gutter-l); padding-right: var(--gutter-r); }
+  .col { max-width: var(--col); margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+  section > h2 { margin: 0 0 10px; font-size: 12.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
+                 display: flex; align-items: baseline; gap: 8px; }
+  section > h2 .hint { text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--faint); font-size: 12.5px; }
+
+  /* setup card */
+  #setup { border: 1px solid var(--line); border-radius: 22px; padding: 22px 20px; display: flex; flex-direction: column; gap: 14px;
+           box-shadow: 0 1px 2px rgba(17, 18, 20, 0.03), 0 10px 30px rgba(17, 18, 20, 0.05); }
+  #setup h2 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; text-wrap: balance; }
+  .facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
+  .facts div { background: var(--soft); border-radius: 14px; padding: 10px 12px; min-width: 0; }
+  .facts dt { font: 500 11px/1.2 var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+  .facts dd { margin: 4px 0 0; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  progress { width: 100%; height: 6px; appearance: none; border: 0; border-radius: 999px; background: var(--soft); overflow: hidden; }
+  progress::-webkit-progress-bar { background: var(--soft); }
+  progress::-webkit-progress-value { background: var(--ink); border-radius: 999px; }
+  progress::-moz-progress-bar { background: var(--ink); }
+  #loadMsg { font: 12.5px/1.45 var(--mono); color: var(--muted); min-height: 1em; }
+
+  /* examples */
+  .examples { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 calc(-1 * var(--gutter-l)) 0 calc(-1 * var(--gutter-l));
+              padding: 0 var(--gutter-r) 2px var(--gutter-l); }
+  .examples::-webkit-scrollbar { display: none; }
+  .examples .chip { flex: none; }
+
+  /* what the model looks at */
+  #state { min-height: 7.5em; font-size: 15.5px; }
+  #state.json { font: 14px/1.5 var(--mono); }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+  .kind { font: 500 11px/1 var(--mono); color: var(--muted); margin-left: auto; }
+  .media { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 14px; padding: 8px; margin-top: 8px; }
+  .media canvas { width: 56px; height: 56px; object-fit: cover; border-radius: 10px; background: var(--soft); flex: none; }
+  .media .wave { width: 56px; height: 56px; border-radius: 10px; background: var(--soft); display: grid; place-items: center; flex: none; }
+  .media .what { flex: 1; min-width: 0; font-size: 14px; }
+  .media .what small { display: block; color: var(--muted); font-size: 12.5px; }
+  .rec { color: var(--warn); border-color: #f0c9bb; }
+
+  /* questions */
+  #qs { display: flex; flex-direction: column; gap: 12px; }
+  .q { border: 1px solid var(--line); border-radius: 18px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .q .top { display: flex; gap: 8px; align-items: center; }
+  .q .name { font: 500 14px/1.3 var(--mono); padding: 7px 10px; flex: 1; }
+  .q .types { display: flex; gap: 4px; background: var(--soft); border-radius: 999px; padding: 3px; overflow-x: auto; scrollbar-width: none; }
+  .q .types button { font-size: 13px; padding: 6px 10px; border-radius: 999px; color: var(--muted); white-space: nowrap; }
+  .q .types button.on { background: var(--bg); color: var(--fg); box-shadow: 0 1px 2px rgba(17, 18, 20, 0.08); }
+  .q .opts { font-size: 14.5px; }
+  .q .opts-label { font-size: 12.5px; color: var(--faint); margin: -2px 0 -4px 2px; }
+
+  /* answers */
+  .ans { border-top: 1px dashed var(--line); padding-top: 10px; margin-top: 2px; display: flex; flex-direction: column; gap: 6px; }
+  .ans .head { display: flex; align-items: baseline; gap: 8px; }
+  .ans .verdict { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+  .ans .conf { font: 12.5px/1 var(--mono); color: var(--muted); margin-left: auto; font-variant-numeric: tabular-nums; }
+  .bar { display: grid; grid-template-columns: minmax(0, 7.5rem) 1fr 3.4rem; gap: 8px; align-items: center; font-size: 13.5px; }
+  .bar .lab { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+  .bar .lab.top { color: var(--fg); font-weight: 500; }
+  .bar .track { height: 8px; border-radius: 999px; background: var(--soft); overflow: hidden; }
+  .bar .fill { height: 100%; border-radius: 999px; background: var(--bar); transition: width 0.35s ease; }
+  .bar .fill.top { background: var(--accent); }
+  .bar .pct { font: 12.5px/1 var(--mono); text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  /* the Decide bar */
+  .go { position: sticky; bottom: 0; background: linear-gradient(to bottom, rgba(255, 255, 255, 0), var(--bg) 30%); padding-top: 18px;
+        padding-bottom: max(12px, env(safe-area-inset-bottom, 0px)); display: flex; gap: 10px; align-items: center; }
+  .go .pill { flex: 1; padding-block: 14px; font-size: 16px; }
+  #runMsg { font: 12px/1.45 var(--mono); color: var(--faint); text-align: center; min-height: 1em; margin-top: -10px; }
+  pre.code { font: 12.5px/1.5 var(--mono); background: var(--soft); border-radius: 14px; padding: 12px; overflow-x: auto; margin: 8px 0 0; white-space: pre; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+  footer { font-size: 12.5px; color: var(--faint); text-align: center; padding: 8px var(--gutter-r) 24px var(--gutter-l); }
+  footer a { color: var(--muted); }
+  @media (max-width: 420px) {
+    .facts { grid-template-columns: 1fr 1fr; }
+    .facts div:last-child { grid-column: span 2; }
+    .bar { grid-template-columns: minmax(0, 5.5rem) 1fr 3.2rem; }
+  }
+</style>
+</head>
+<body>
+<header id="top">
+  <div class="brand">
+    <h1>d1-Omni-2B</h1>
+    <div class="tags"><span class="tag" id="chip">checking the GPU</span><span class="tag flat" id="bits" hidden>4-bit</span></div>
+  </div>
+  <a class="navlink" href="./">Chat</a>
+</header>
+<main>
+  <div class="col">
+    <div id="setup">
+      <h2>d1-Omni-2B: decisions in the browser</h2>
+      <p class="muted">LiquidAI's decision model runs on this device via WebGPU. Give it a message, some JSON, a photo or a recording,
+        and ask it named questions: yes or no, one choice, several choices, or a score. It answers every question at once with
+        calibrated probabilities, in one pass, without writing any text. Nothing leaves your device.</p>
+      <dl class="facts">
+        <div><dt>Model</dt><dd>0.93 GB</dd></div>
+        <div><dt>Photos</dt><dd>+0.19 GB</dd></div>
+        <div><dt>Recordings</dt><dd>+0.06 GB</dd></div>
+      </dl>
+      <p class="muted">The weights (4-bit) stream into the GPU and a copy is kept in this browser's storage, so later visits skip the download.
+        The image and speech parts load the first time you add a photo or a recording. Needs a GPU, Safari 26 or another current browser.</p>
+      <button class="pill" id="loadBtn" disabled>Load the model</button>
+      <progress id="prog" value="0" max="1" hidden></progress>
+      <div id="loadMsg"></div>
+    </div>
+
+    <section>
+      <h2>Try one</h2>
+      <div class="examples" id="examples"></div>
+    </section>
+
+    <section>
+      <h2>What it looks at <span class="hint">text, JSON, a photo or a recording</span></h2>
+      <textarea id="state" rows="5" placeholder="Paste a message, a review, a ticket, or JSON"></textarea>
+      <div class="row">
+        <button class="chip" id="photoBtn" title="Add a photo">
+          <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="m21 16-5-5-8 8"/></svg>Photo</button>
+        <button class="chip" id="recBtn" title="Record from the microphone">
+          <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span>Record</span></button>
+        <button class="chip" id="clipBtn" title="Add an audio file">
+          <svg viewBox="0 0 24 24"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg>Audio file</button>
+        <span class="kind" id="kind"></span>
+      </div>
+      <div class="media" id="media" hidden>
+        <canvas id="mediaPic" width="56" height="56" hidden></canvas>
+        <div class="wave" id="mediaWave" hidden><svg viewBox="0 0 24 24"><path d="M3 12h2M7 8v8M11 5v14M15 8v8M19 11v2"/></svg></div>
+        <div class="what"><span id="mediaName"></span><small id="mediaInfo"></small></div>
+        <button class="icon" id="mediaDrop" aria-label="Remove"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
+      <input type="file" id="photo" accept="image/*" hidden>
+      <input type="file" id="clip" accept="audio/*" hidden>
+    </section>
+
+    <section>
+      <h2>Questions <span class="hint">answered together, up to 16 per pass</span></h2>
+      <div id="qs"></div>
+      <div class="row"><button class="chip" id="addQ"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add a question</button></div>
+    </section>
+
+    <div class="go">
+      <button class="pill" id="decide" disabled>Decide</button>
+      <button class="icon" id="copyBtn" aria-label="Copy the answers as JSON" title="Copy the answers as JSON" disabled>
+        <svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button>
+    </div>
+    <div id="runMsg"></div>
+
+    <section>
+      <details>
+        <summary>Use it from code</summary>
+        <pre class="code" id="code"></pre>
+        <p class="muted" style="margin-top:8px">The same call this page makes: <code>engine/d1.js</code> on an <code>LFM3</code> loaded with d1's weights
+          (<code>d1-weights.js</code>) and the release's <code>d1/calibration.json</code>.</p>
+      </details>
+    </section>
+
+    <section>
+      <details>
+        <summary>Storage and about</summary>
+        <p class="muted" id="dropInfo" style="margin-top:8px"></p>
+        <div class="row"><button class="chip" id="dropBtn" hidden>Remove the saved copy</button><span class="muted" id="dropMsg"></span></div>
+        <p class="muted" style="margin-top:12px">Implementation by Mage / Toaster Club LLC. Model: <a href="https://huggingface.co/LiquidAI/d1-Omni-2B">d1-Omni-2B</a>
+          by Liquid AI, under the LFM Open License v1.0 (<a href="./licenses/LFM-Open-License-v1.0.txt">license</a>). Not affiliated with Liquid AI.
+          Quantized to 4-bit (round-to-nearest, groups of 64); on the release's own test cases every answer matched its runner, with
+          probabilities within 0.05.</p>
+      </details>
+    </section>
+  </div>
+</main>
+<footer>Runs on your GPU. No API is called. <a href="./">Back to the chat</a></footer>
+<script src="./d1-weights.js"></script>
+<script type="module" src="./decide.js"></script>
+</body>
+</html>

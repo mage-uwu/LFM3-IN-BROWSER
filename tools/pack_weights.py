@@ -9,7 +9,14 @@ path never changes and the parts can be cached for good (public/_headers). Every
       --set audio  work/audio/manifest_q4g64.json         work/aw/chunks.json         work/aw \
       --set talk   work/speech/manifest_speech_q4g64.json work/sw/chunks.json         work/sw \
       --set codec  work/speech/manifest_codec_q8.json     work/cw/chunks.json         work/cw
+    python tools/pack_weights.py --js d1-weights.js \
+      --set d1       work/d1lm/manifest.json     work/d1lm/chunks.json     work/d1lm \
+      --set d1vision work/d1vision/manifest.json work/d1vision/chunks.json work/d1vision \
+      --set d1audio  work/d1audio/manifest.json  work/d1audio/chunks.json  work/d1audio
     python tools/pack_weights.py --verify            # re-check the parts already in public/weights
+
+--js names the list written (weights.js, the chat page's, by default); a run replaces only the sets of the kinds it
+packs, so the chat page's sets and the decision model's are packed separately.
 
 Each part must stay under Cloudflare Workers' 25 MiB per static file (png_chunks.py --mib 14.5 or 18 does).
 """
@@ -27,7 +34,10 @@ import zlib
 
 # set name -> (window global the app reads, id tag)
 SETS = {"lm": ("LFM3_WEIGHTS", "gptq"), "vision": ("LFM3_VISION", "vision"), "audio": ("LFM3_AUDIO", "audio"),
-        "talk": ("LFM3_TALK", "talk"), "codec": ("LFM3_CODEC", "codec")}
+        "talk": ("LFM3_TALK", "talk"), "codec": ("LFM3_CODEC", "codec"),
+        # LiquidAI/d1-Omni-2B, the decision model (public/decide.html reads d1-weights.js): its own language model and
+        # encoders (the release changed them too)
+        "d1": ("D1_WEIGHTS", "d1lm"), "d1vision": ("D1_VISION", "d1vision"), "d1audio": ("D1_AUDIO", "d1audio")}
 MAX_FILE = 25 * 2**20
 
 
@@ -63,6 +73,7 @@ def main():
     ap.add_argument("--site", default="public", help="the site directory (the Worker's assets.directory)")
     ap.add_argument("--set", nargs=4, action="append", default=[], metavar=("NAME", "MANIFEST", "CHUNKS", "DIR"),
                     help=f"a weight set: one of {', '.join(SETS)}, its manifest, its chunks.json, the folder of its PNGs")
+    ap.add_argument("--js", default="weights.js", help="the list to write, under the site directory")
     ap.add_argument("--verify", action="store_true", help="only re-check every part under <site>/weights")
     args = ap.parse_args()
     if args.verify:
@@ -73,14 +84,15 @@ def main():
             assert os.path.basename(d) == set_id(os.path.basename(d).split("-")[0], ch["chunks"]), f"{d}: id"
             print(f"{os.path.basename(d)}: {len(ch['chunks'])} parts verified")
         return
-    js = ["// The model's weight sets for app.js: tensor lists and the URLs of their parts (tools/pack_weights.py)."]
-    keep = set()
+    js = [f"// The model's weight sets for the page: tensor lists and the URLs of their parts (tools/pack_weights.py)."]
+    keep, tags = set(), set()
     for name, manifest, chunks_json, src in args.set:
         glob_name, tag = SETS[name]
         man, ch = json.load(open(manifest)), json.load(open(chunks_json))
         assert sum(t["bytes"] for t in man["tensors"]) == ch["total_bytes"], f"{name}: manifest and chunks disagree"
         wid = set_id(tag, ch["chunks"])
         keep.add(wid)
+        tags.add(tag)
         rel = f"weights/{wid}/"
         os.makedirs(os.path.join(args.site, rel), exist_ok=True)
         for c in ch["chunks"]:
@@ -93,10 +105,10 @@ def main():
               "chunks": [{"url": rel + c["file"], "bytes": c["bytes"]} for c in ch["chunks"]]}
         js.append(f"window.{glob_name} = {json.dumps(ws, separators=(',', ':'))};")
         print(f"{name}: {wid}, {len(ch['chunks'])} parts, {sum(c['png_bytes'] for c in ch['chunks']) / 1e6:.0f} MB")
-    for d in glob.glob(os.path.join(args.site, "weights", "*")):  # sets the site no longer lists
-        if os.path.isdir(d) and os.path.basename(d) not in keep:
+    for d in glob.glob(os.path.join(args.site, "weights", "*")):  # older sets of the kinds just packed
+        if os.path.isdir(d) and os.path.basename(d).split("-")[0] in tags and os.path.basename(d) not in keep:
             shutil.rmtree(d)
-    with open(os.path.join(args.site, "weights.js"), "w") as f:
+    with open(os.path.join(args.site, args.js), "w") as f:
         f.write("\n".join(js) + "\n")
 
 
