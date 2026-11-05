@@ -5,7 +5,7 @@
   "description": "LFM3-Omni-2B on your own GPU with WebGPU: text, photos, speech in and spoken replies",
   "license": "Apache-2.0",
   "author": "Mage / Toaster Club LLC",
-  "homepage": "https://lfm3-in-browser.toasterclub.workers.dev",
+  "homepage": "https://lfm.toasterclub.com",
   "repository": {
     "type": "git",
     "url": "https://github.com/mage-uwu/LFM3-IN-BROWSER"

@@ -7,7 +7,7 @@ authors:
     affiliation: "Toaster Club LLC"
   - name: "Toaster Club LLC"
 repository-code: "https://github.com/mage-uwu/LFM3-IN-BROWSER"
-url: "https://lfm3-in-browser.toasterclub.workers.dev"
+url: "https://lfm.toasterclub.com"
 license: Apache-2.0
 date-released: "2026-11-05"
 keywords: [webgpu, wgsl, on-device, lfm3, speech, multimodal]

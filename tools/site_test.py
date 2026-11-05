@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0. Copyright 2026 Toaster Club LLC.
 """Check a deployed site end to end in headless Chromium (WebGPU on SwiftShader when there is no GPU):
 
-    python tools/site_test.py --base https://lfm3-in-browser.toasterclub.workers.dev --out out/site
+    python tools/site_test.py --base https://lfm.toasterclub.com --out out/site
 
 1. examples/chat.html loads the language model from the site's weights and answers a question;
 2. the app loads, its Settings show the credits and licenses, custom instructions ("Always answer in French.")
@@ -25,7 +25,7 @@ FILES = ["licenses/LFM-Open-License-v1.0.txt", "licenses/Apache-2.0.txt", "licen
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--base", default="https://lfm3-in-browser.toasterclub.workers.dev")
+    ap.add_argument("--base", default="https://lfm.toasterclub.com")
     ap.add_argument("--out", default="out/site")
     ap.add_argument("--minutes", type=float, default=40, help="per wait for a model load or an answer")
     args = ap.parse_args()

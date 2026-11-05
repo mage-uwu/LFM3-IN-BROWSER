@@ -76,7 +76,7 @@ python3 tools/ui_test.py --page "/index.html?maxpx=65536" --assets --faces --tal
 licenses in Settings, sets custom instructions and asks a question, and checks that the license files are served:
 
 ```bash
-python3 tools/site_test.py --base https://lfm3-in-browser.toasterclub.workers.dev --out out/site
+python3 tools/site_test.py --base https://lfm.toasterclub.com --out out/site
 ```
 
 ## What was found this way

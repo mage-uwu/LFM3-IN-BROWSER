@@ -5,7 +5,7 @@ It reads text, photos and speech, and answers in text or out loud. There is no s
 install: the page streams the weights into WebGPU, and nothing you type, say or show leaves the device. It works
 on an iPhone in Safari 26 or later.
 
-**Try it:** <https://lfm3-in-browser.toasterclub.workers.dev>
+**Try it:** <https://lfm.toasterclub.com>
 
 ![LFM3 in the Browser](public/og.png)
 
@@ -47,7 +47,7 @@ The site is just the static files in `public/`, about 1.3 GB including all five 
 2. In Cloudflare, go to **Workers & Pages → Create → Import a repository**, pick your fork, and keep the defaults.
    The deploy command is `npx wrangler deploy`.
 
-Every push to `main` then redeploys. From a terminal instead:
+Every push to `main` then redeploys, at `https://<project>.<your-subdomain>.workers.dev`; add your own domain under the Worker's **Settings → Domains & Routes**. From a terminal instead:
 
 ```bash
 npm ci
