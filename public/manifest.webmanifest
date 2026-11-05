@@ -1,0 +1,23 @@
+{
+ "name": "LFM3 Omni",
+ "short_name": "LFM3",
+ "description": "LFM3-Omni-2B on this device's GPU: text, photos, speech and Live",
+ "start_url": "./",
+ "scope": "./",
+ "display": "standalone",
+ "background_color": "#ffffff",
+ "theme_color": "#ffffff",
+ "icons": [
+  {
+   "src": "icon-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "any"
+  },
+  {
+   "src": "icon-180.png",
+   "sizes": "180x180",
+   "type": "image/png"
+  }
+ ]
+}

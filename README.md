@@ -4,6 +4,20 @@ LiquidAI's [LFM3-Omni-2B](https://huggingface.co/LiquidAI/LFM3-Omni-2B) running 
 WebGPU, iPhone included (Safari 26 or later). It reads text, photos and speech, and can answer out loud. Nothing
 you send leaves the device: the server only hands out static files.
 
+Live at <https://lfm3-in-browser.toasterclub.workers.dev>.
+
+* **Talk:** hold the round mic button, speak, and let go. The answer is spoken and written as it is made. Or tap
+  once to start and tap again to send. Your speech goes into the model while you are still talking, so the answer
+  starts right after you let go. Press again during an answer to interrupt it.
+* **Voice mode** shows a soap bubble with a small face above the message box. It smiles when idle, swells with
+  your voice while you hold to talk, looks up while thinking, and moves its mouth with the answer's sound. You
+  can hold the bubble itself to talk.
+* **Live:** the camera button opens the camera full screen. Hold the orb to talk; the picture from when you start
+  talking goes in with your words.
+* **Chat:** type, or add a photo. Turn on **Speak** in the top bar to hear typed answers too.
+* **On iPhone:** in Safari, Share → **Add to Home Screen** turns the site into an app with its own icon. The
+  weights it has downloaded stay on the phone.
+
 This repository is a Cloudflare Workers project with static assets only. `public/` is the whole site:
 
 | Path | What it is | Size |

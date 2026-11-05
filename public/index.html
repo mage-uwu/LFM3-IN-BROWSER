@@ -3,99 +3,222 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>LFM3 On-Device</title>
-<link rel="icon" href="data:,">
+<title>LFM3 Omni</title>
+<link rel="icon" href="./icon-180.png">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="LFM3">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#131417" media="(prefers-color-scheme: dark)">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
 <style>
-  /* Layout: one-screen app (header · scrolling transcript · composer), every edge clear of the phone's safe areas. */
+  /* A white, quiet chat: plain top bar, the conversation in one column, a white composer at the bottom. In voice
+     mode a soap bubble with a small face sits above the composer and shows the turn: it smiles when idle, swells
+     with your voice while you hold to talk, looks up while thinking and moves its mouth with the answer's sound.
+     In Live the same bubble floats over the camera and is the button you hold. One light look on purpose. */
   :root {
-    --bg: #f4f5f7; --panel: #ffffff; --fg: #17191d; --muted: #5d6470; --line: #dde0e6;
-    --accent: #1f5fbf; --accent-fg: #ffffff; --user: #e3ebf8; --warn: #a2470f; --ok: #1d7a43;
-    --sans: "IBM Plex Sans", -apple-system, "Segoe UI", Roboto, sans-serif;
-    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    color-scheme: light;
+    --bg: #ffffff; --fg: #111214; --muted: #74777f; --faint: #a3a6ad; --line: #ececee; --soft: #f4f4f5;
+    --ink: #111214; --ink-fg: #ffffff; --accent: #2f6bff; --warn: #b4441c; --veil: rgba(17, 18, 20, 0.28);
+    --face: #24262b;
+    --sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
     --gutter-l: max(16px, env(safe-area-inset-left, 0px));
     --gutter-r: max(16px, env(safe-area-inset-right, 0px));
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg: #121417; --panel: #1b1e23; --fg: #e8eaee; --muted: #9aa1ad; --line: #2c3038;
-      --accent: #78a6ff; --accent-fg: #0d1830; --user: #1f2a3d; --warn: #f0a46c; --ok: #5ccf8a; color-scheme: dark;
-    }
-  }
-  :root[data-theme="dark"] {
-    --bg: #121417; --panel: #1b1e23; --fg: #e8eaee; --muted: #9aa1ad; --line: #2c3038;
-    --accent: #78a6ff; --accent-fg: #0d1830; --user: #1f2a3d; --warn: #f0a46c; --ok: #5ccf8a; color-scheme: dark;
+    --col: 44rem;
   }
   * { box-sizing: border-box; }
-  html, body { height: 100%; }
-  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--sans); display: flex; flex-direction: column; }
-  header { display: flex; align-items: center; gap: 10px; padding-block: 10px; padding-left: var(--gutter-l); padding-right: var(--gutter-r);
-           border-bottom: 1px solid var(--line); background: var(--panel); }
-  header h1 { font-size: 16px; margin: 0; font-weight: 600; flex: 1; white-space: nowrap; letter-spacing: -0.01em; }
-  .chip { font: 12px/1.4 var(--mono); color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px;
-          white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 42vw; }
-  button, .filebtn { font: 500 15px/1.2 var(--sans); border: 1px solid var(--line); background: var(--panel); color: var(--fg);
-           border-radius: 10px; padding: 9px 14px; cursor: pointer; }
-  button.primary, .filebtn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
-  button:disabled { opacity: .45; cursor: default; }
-  button:focus-visible, .filebtn:focus-within, select:focus-visible, textarea:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  main { flex: 1; overflow-y: auto; padding-block: 16px; padding-left: var(--gutter-l); padding-right: var(--gutter-r); -webkit-overflow-scrolling: touch; }
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; max-width: 620px; margin: 0 auto 16px;
-          display: flex; flex-direction: column; gap: 12px; }
-  .card h2 { font-size: 17px; margin: 0; text-wrap: balance; }
-  .muted { color: var(--muted); font-size: 13.5px; margin: 0; }
-  ol.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; }
-  ol.steps li { padding-left: 2px; }
-  a { color: var(--accent); }
-  .url { font: 12.5px/1.4 var(--mono); word-break: break-all; color: var(--muted); user-select: all; }
   [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.55 var(--sans); display: flex; flex-direction: column;
+         -webkit-font-smoothing: antialiased; overflow: hidden; }
+  .panel { background: var(--bg); border: 1px solid var(--line); box-shadow: 0 1px 2px rgba(17, 18, 20, 0.03), 0 10px 30px rgba(17, 18, 20, 0.05); }
+  svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  button { font: 500 15px/1.2 var(--sans); color: var(--fg); background: transparent; border: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  button:disabled { opacity: 0.35; cursor: default; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .icon { width: 38px; height: 38px; border-radius: 999px; display: inline-grid; place-items: center; color: var(--fg); }
+  .icon:hover:not(:disabled) { background: var(--soft); }
+  .icon.on { background: var(--ink); color: var(--ink-fg); }
+  .pill { border-radius: 999px; padding: 11px 20px; background: var(--ink); color: var(--ink-fg); font-weight: 500; }
+  .pill.ghost { background: transparent; color: var(--fg); border: 1px solid var(--line); }
+  .linkish { color: var(--muted); font-size: 14px; text-decoration: underline; text-underline-offset: 3px; padding: 4px 0; }
+
+  /* top bar */
+  header { display: flex; align-items: center; gap: 4px; padding-block: 10px 6px; padding-left: var(--gutter-l); padding-right: var(--gutter-r); background: var(--bg); position: relative; z-index: 5; }
+  .brand { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
+  .brand h1 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+  #chip { font: 11.5px/1.3 var(--mono); color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* conversation */
+  main { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-block: 18px 140px; padding-left: var(--gutter-l); padding-right: var(--gutter-r); }
+  body.voice main { padding-block-end: 300px; }
+  .col { max-width: var(--col); margin: 0 auto; }
+  .msgs { display: flex; flex-direction: column; gap: 20px; }
+  .msg { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; }
+  .msg.user { align-self: flex-end; background: var(--soft); border-radius: 20px; padding: 9px 15px; max-width: 82%; }
+  .msg.assistant { align-self: stretch; max-width: 100%; }
+  .msg.notice { align-self: center; text-align: center; color: var(--faint); font-size: 13px; max-width: 34rem; }
+  .msg .thumb { display: block; max-width: 100%; height: auto; border-radius: 14px; margin-bottom: 8px; }
+  .msg .voicetag { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; color: var(--muted); }
+  .stats { font: 11px/1.45 var(--mono); color: var(--faint); margin-top: 8px; font-variant-numeric: tabular-nums; white-space: normal; }
+  .err { color: var(--warn); }
+  #hello { text-align: center; padding-top: 20vh; }
+  #hello h2 { margin: 0 0 20px; font-size: clamp(23px, 6vw, 28px); font-weight: 500; letter-spacing: -0.02em; text-wrap: balance; }
+  .hints { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+  .hints button { border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; font-size: 14px; color: var(--muted); display: inline-flex; gap: 8px; align-items: center; }
+  .hints button:hover { background: var(--soft); }
+  .hints svg { width: 16px; height: 16px; }
+  body.voice #hello { display: none; }
+
+  /* setup card */
+  #setup { margin: 6vh auto 0; max-width: 30rem; border-radius: 24px; padding: 24px 22px; display: flex; flex-direction: column; gap: 14px; }
+  #setup h2 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; text-wrap: balance; }
+  .muted { color: var(--muted); font-size: 14.5px; margin: 0; }
+  ol.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; font-size: 14.5px; }
+  .url { font: 12px/1.4 var(--mono); word-break: break-all; color: var(--muted); user-select: all; }
+  a { color: var(--accent); }
   .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
   label.lbl { font-size: 13px; color: var(--muted); }
-  select { font: 15px var(--sans); padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); max-width: 100%; }
-  .filebtn { position: relative; display: inline-flex; align-items: center; overflow: hidden; }
+  select { font: 14px var(--sans); padding: 8px 10px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); max-width: 100%; }
+  .filebtn { position: relative; display: inline-flex; align-items: center; overflow: hidden; border: 1px solid var(--line); border-radius: 999px; padding: 9px 16px; font-size: 14.5px; }
   .filebtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; font-size: 0; }
-  .fname { font: 12.5px/1.4 var(--mono); color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
-  progress { width: 100%; height: 8px; accent-color: var(--accent); }
-  .status { font: 12.5px/1.4 var(--mono); color: var(--muted); min-height: 1.4em; }
-  .msgs { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
-  .msg { padding: 10px 14px; border-radius: 14px; white-space: pre-wrap; overflow-wrap: anywhere; max-width: 92%; min-width: 0; }
-  .msg.user { background: var(--user); align-self: flex-end; }
-  .msg.assistant { background: var(--panel); border: 1px solid var(--line); align-self: flex-start; }
-  .stats { font: 11.5px/1.4 var(--mono); color: var(--muted); margin-top: 6px; font-variant-numeric: tabular-nums; }
-  footer { border-top: 1px solid var(--line); background: var(--panel); padding-block: 10px; padding-left: var(--gutter-l); padding-right: var(--gutter-r); }
-  .composer { display: flex; gap: 8px; max-width: 720px; margin: 0 auto; }
-  .attach { display: flex; gap: 10px; align-items: center; max-width: 720px; margin: 0 auto 8px; font-size: 14px; }
-  .attach .thumb { border-radius: 6px; display: block; }
-  .msg .thumb { display: block; max-width: 100%; height: auto; border-radius: 8px; margin-bottom: 6px; }
-  .msg .voicetag { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
-  #micBtn.rec, #speakBtn.on { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
-  textarea { flex: 1; min-width: 0; font-family: var(--sans); font-size: 16px; line-height: 1.4; resize: none; border: 1px solid var(--line);
-             border-radius: 12px; padding: 9px 12px; background: var(--bg); color: var(--fg); max-height: 30vh; }
-  #memory { position: fixed; inset: 0; background: color-mix(in srgb, var(--fg) 35%, transparent); display: none; align-items: flex-end; justify-content: center; z-index: 20; }
+  .fname { font: 12px/1.4 var(--mono); color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
+  progress { width: 100%; height: 3px; border-radius: 3px; overflow: hidden; accent-color: var(--ink); appearance: none; border: 0; background: var(--soft); }
+  progress::-webkit-progress-bar { background: var(--soft); }
+  progress::-webkit-progress-value { background: var(--ink); }
+  progress::-moz-progress-bar { background: var(--ink); }
+  .status { font: 12px/1.45 var(--mono); color: var(--muted); min-height: 1.45em; font-variant-numeric: tabular-nums; }
+
+  /* the bottom: the bubble (voice mode) over the composer */
+  footer { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; pointer-events: none;
+           padding-left: var(--gutter-l); padding-right: var(--gutter-r); padding-block: 0 calc(12px + env(safe-area-inset-bottom, 0px));
+           background: linear-gradient(to bottom, rgba(255, 255, 255, 0), var(--bg) 22px); }
+  .dock { display: flex; flex-direction: column; align-items: center; gap: 8px; padding-block: 18px 14px; pointer-events: none; }
+  .dock .soap { pointer-events: auto; }
+  #buddyState { margin: 0; font-size: 13px; color: var(--muted); min-height: 1.3em; }
+  .composer { pointer-events: auto; max-width: var(--col); margin: 0 auto; border-radius: 26px; padding: 8px; display: flex; flex-direction: column; gap: 2px; }
+  .tray { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 6px 0; }
+  .tray:empty, .tray:not(:has(> :not([hidden]))) { display: none; }
+  .att { display: inline-flex; align-items: center; gap: 8px; border-radius: 14px; background: var(--soft); padding: 5px 6px 5px 10px; font-size: 13.5px; color: var(--muted); max-width: 100%; }
+  .att .thumb { border-radius: 9px; display: block; }
+  .att button { width: 26px; height: 26px; border-radius: 999px; display: grid; place-items: center; color: var(--muted); }
+  .att button svg { width: 15px; height: 15px; }
+  .att .textbtn { width: auto; height: auto; padding: 4px 10px; border-radius: 999px; background: var(--ink); color: var(--ink-fg); font-size: 13px; }
+  textarea { width: 100%; font: 16px/1.45 var(--sans); resize: none; border: 0; outline: 0; padding: 8px 10px 4px; background: transparent; color: var(--fg); max-height: 30vh; }
+  textarea::placeholder { color: var(--faint); }
+  .tools { display: flex; align-items: center; gap: 2px; }
+  .tools .grow { flex: 1; }
+  .round { width: 38px; height: 38px; border-radius: 999px; display: grid; place-items: center; background: var(--ink); color: var(--ink-fg); }
+  .round svg { width: 19px; height: 19px; stroke-width: 2; }
+  #send .stop { display: none; } #send.busy .go { display: none; } #send.busy .stop { display: block; fill: currentColor; stroke: none; }
+  /* push to talk: held, the button turns blue and its ring follows the voice */
+  #talkBtn, .soap { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  #talkBtn { position: relative; transition: transform 120ms ease, background 120ms ease; }
+  #talkBtn.rec { background: var(--accent); transform: scale(1.1); }
+  #talkBtn.rec::after { content: ""; position: absolute; inset: -5px; border-radius: 999px; border: 2px solid var(--accent); opacity: 0.45;
+                        transform: scale(calc(1 + var(--level, 0) * 0.5)); transition: transform 90ms linear; }
+
+  /* the soap bubble: a clear film with an iridescent rim that drifts, two highlights, a face */
+  .soap { --size: 104px; --level: 0; --talk: 0; position: relative; width: var(--size); height: var(--size); padding: 0; border-radius: 50%; flex: none;
+          background:
+            radial-gradient(circle at 31% 25%, rgba(255, 255, 255, 0.98) 0 4.5%, rgba(255, 255, 255, 0) 11%),
+            radial-gradient(circle at 71% 79%, rgba(255, 255, 255, 0.8) 0 2.2%, rgba(255, 255, 255, 0) 6.5%),
+            radial-gradient(circle at 50% 54%, rgba(246, 249, 255, 0.5) 0 50%, rgba(205, 220, 255, 0.32) 68%, rgba(255, 255, 255, 0.7) 88%, rgba(210, 222, 255, 0.55) 100%);
+          background-color: rgba(255, 255, 255, 0.6); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+          box-shadow: 0 0 0 1px rgba(160, 176, 225, 0.22), inset 0 -8px 20px rgba(150, 165, 255, 0.16), inset 0 6px 16px rgba(255, 255, 255, 0.8), 0 16px 38px rgba(100, 120, 190, 0.14);
+          transform: scale(calc(1 + var(--level) * 0.16)); transition: transform 90ms linear;
+          animation: wobble 7s ease-in-out infinite; }
+  .soap .film { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0.72; filter: blur(2.5px);
+                background: conic-gradient(from 0deg, #8fe0ff, #c9a6ff, #ffb3dc, #ffe9a3, #a9f5d6, #8fe0ff);
+                -webkit-mask: radial-gradient(circle, transparent 0 61%, #000 77%); mask: radial-gradient(circle, transparent 0 61%, #000 77%);
+                animation: swirl 11s linear infinite; }
+  .soap .face { position: absolute; inset: 0; width: 100%; height: 100%; stroke: none; overflow: visible; pointer-events: none; }
+  .face .eyes, .face .eye, .face .smile, .face .mouth { transform-box: fill-box; transform-origin: center; }
+  .face .eyes { transition: transform 220ms ease; }
+  .face .eye { fill: var(--face); animation: blink 6s infinite; }
+  .face .smile { fill: none; stroke: var(--face); stroke-width: 2.4; stroke-linecap: round; transition: transform 200ms ease, opacity 160ms ease; }
+  .face .mouth { fill: var(--face); opacity: 0; transform: scale(0.5, 0.2); transition: transform 70ms linear, opacity 120ms ease; }
+  .soap[data-state="listening"] .eyes { transform: scale(1.14); }
+  .soap[data-state="listening"] .smile { opacity: 0; }
+  .soap[data-state="listening"] .mouth { opacity: 1; transform: scale(0.5, 0.62); }
+  .soap[data-state="thinking"] { animation: wobble 7s ease-in-out infinite, bob 1.6s ease-in-out infinite; }
+  .soap[data-state="thinking"] .film { animation-duration: 3.5s; }
+  .soap[data-state="thinking"] .eyes { transform: translate(2.5px, -3.5px); }
+  .soap[data-state="thinking"] .smile { transform: scale(0.7, 0.12); }
+  .soap[data-state="speaking"] .smile { opacity: 0; }
+  .soap[data-state="speaking"] .mouth { opacity: 1; transform: scale(calc(1 - var(--talk) * 0.2), calc(0.16 + var(--talk) * 1.25)); }
+  @keyframes swirl { to { transform: rotate(360deg); } }
+  @keyframes blink { 0%, 93%, 100% { transform: scaleY(1); } 95.5% { transform: scaleY(0.1); } }
+  @keyframes bob { 50% { translate: 0 -4px; } }
+  @keyframes wobble {
+    0%, 100% { border-radius: 50%; }
+    30% { border-radius: 52% 48% 50% 50% / 49% 52% 48% 51%; }
+    65% { border-radius: 48% 52% 51% 49% / 52% 48% 51% 49%; }
+  }
+
+  /* memory sheet */
+  #memory { position: fixed; inset: 0; background: var(--veil); display: none; align-items: flex-end; justify-content: center; z-index: 20; }
   #memory.open { display: flex; }
-  #memory .sheet { background: var(--panel); width: 100%; max-width: 640px; max-height: 80vh; overflow-y: auto; border-radius: 16px 16px 0 0;
-                   padding-block: 16px calc(16px + env(safe-area-inset-bottom, 0px)); padding-left: var(--gutter-l); padding-right: var(--gutter-r);
-                   display: flex; flex-direction: column; gap: 12px; }
-  .note { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding-block: 6px; border-bottom: 1px solid var(--line); font-size: 14px; }
+  #memory .sheet { width: 100%; max-width: 40rem; max-height: 82vh; overflow-y: auto; border-radius: 24px 24px 0 0; background: var(--bg);
+                   padding-block: 20px calc(20px + env(safe-area-inset-bottom, 0px)); padding-left: var(--gutter-l); padding-right: var(--gutter-r);
+                   display: flex; flex-direction: column; gap: 14px; }
+  #memory h2 { margin: 0; font-size: 18px; font-weight: 600; }
+  #memory .row button { border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; font-size: 14px; }
+  #memory .row button.pill { border: 0; }
+  .note { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding-block: 8px; border-bottom: 1px solid var(--line); font-size: 14.5px; }
   .note span { min-width: 0; overflow-wrap: anywhere; }
-  .note button { padding: 3px 9px; font-size: 12.5px; }
-  .err { color: var(--warn); }
-  .good { color: var(--ok); }
-  @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+  .note button { padding: 3px 10px; font-size: 13px; border: 1px solid var(--line); border-radius: 999px; }
+
+  /* Live: the camera full screen, the bubble over it */
+  #live { position: fixed; inset: 0; z-index: 30; background: #0b0c0e; color: #ffffff; display: flex; flex-direction: column; overflow: hidden; }
+  #liveVideo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  #liveVideo.front { transform: scaleX(-1); }
+  .veil { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0) 26%, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.55) 100%); }
+  .ltop, .lmid, .lbot { position: relative; padding-left: var(--gutter-l); padding-right: var(--gutter-r); }
+  .ltop { display: flex; align-items: center; justify-content: space-between; padding-block: calc(12px + env(safe-area-inset-top, 0px)) 0; }
+  .badge { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; padding: 7px 14px; font-size: 14px; font-weight: 500;
+           background: rgba(255, 255, 255, 0.16); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+  .dot { width: 8px; height: 8px; border-radius: 999px; background: #ff4b4b; }
+  .lmid { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 12px; padding-block: 0 24px; text-align: center; }
+  #live .soap { --size: 140px; margin: 22px 0 26px; background-color: rgba(255, 255, 255, 0.2); -webkit-backdrop-filter: blur(10px) saturate(140%); backdrop-filter: blur(10px) saturate(140%);
+                box-shadow: inset 0 -8px 22px rgba(150, 165, 255, 0.22), inset 0 6px 16px rgba(255, 255, 255, 0.7), 0 18px 50px rgba(0, 0, 0, 0.28); }
+  #liveState { margin: 0; font-size: 16px; font-weight: 500; letter-spacing: -0.01em; text-shadow: 0 1px 12px rgba(0, 0, 0, 0.45); }
+  .caption { margin: 0; max-width: 34rem; font-size: 15.5px; line-height: 1.45; color: rgba(255, 255, 255, 0.94); text-shadow: 0 1px 10px rgba(0, 0, 0, 0.6); min-height: 1.45em; text-wrap: balance; }
+  .lbot { display: flex; justify-content: center; gap: 16px; padding-block: 6px calc(22px + env(safe-area-inset-bottom, 0px)); }
+  .gbtn { width: 56px; height: 56px; border-radius: 999px; display: grid; place-items: center; color: #ffffff; background: rgba(255, 255, 255, 0.18);
+          -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+  .gbtn svg { width: 23px; height: 23px; }
+  .gbtn.off { background: rgba(255, 255, 255, 0.92); color: #111214; }
+  .gbtn.end { background: #ff453a; }
+  .lcard { position: relative; margin: 0 auto; max-width: 26rem; border-radius: 22px; padding: 18px; display: flex; flex-direction: column; gap: 12px; text-align: left;
+           background: rgba(255, 255, 255, 0.94); color: var(--fg); font-size: 14.5px; }
+  .lcard p { margin: 0; color: var(--muted); }
+  .lcard .pill { align-self: flex-start; display: inline-flex; gap: 8px; align-items: center; position: relative; overflow: hidden; }
+  .lcard .pill input { position: absolute; inset: 0; opacity: 0; font-size: 0; cursor: pointer; }
+  @media (prefers-reduced-motion: reduce) {
+    .soap, .soap .film, .face .eye, .soap[data-state="thinking"] { animation: none; }
+    .soap { transition: none; }
+  }
 </style>
 </head>
 <body>
 <header>
-  <h1>LFM3 On-Device</h1>
-  <span class="chip" id="chip">checking WebGPU…</span>
-  <button id="speakBtn" disabled hidden aria-pressed="false" aria-label="Spoken replies">Speak</button>
-  <button id="memBtn" disabled>Memory</button>
+  <div class="brand"><h1>LFM3 Omni</h1><span id="chip">checking WebGPU…</span></div>
+  <button id="speakBtn" class="icon" disabled hidden aria-pressed="false" aria-label="Spoken replies" title="Spoken replies">
+    <svg viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg></button>
+  <button id="memBtn" class="icon" disabled aria-label="Memory" title="Memory">
+    <svg viewBox="0 0 24 24"><path d="M12 3a7 7 0 0 0-4 12.7V19h8v-3.3A7 7 0 0 0 12 3z"/><path d="M9.5 22h5"/></svg></button>
+  <button id="newChatTop" class="icon" disabled aria-label="New chat" title="New chat">
+    <svg viewBox="0 0 24 24"><path d="M12 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/><path d="M17.5 3.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
 </header>
 <main id="main">
-  <section class="card" id="setup">
-    <h2>Run LiquidAI's LFM3-Omni-2B on this device's GPU</h2>
-    <p class="muted">The unmodified model runs here with WebGPU, and nothing you type leaves the device. It needs Safari 26 or later on iPhone, or a recent Chrome, Edge or Safari on a computer.</p>
+  <section class="panel" id="setup">
+    <h2>LFM3 Omni, running on this device</h2>
+    <p class="muted">LiquidAI's LFM3-Omni-2B runs on this device's GPU with WebGPU. It reads text, photos and speech and can answer out loud; nothing you send leaves the device. It needs Safari 26 or later on iPhone, or a recent Chrome, Edge or Safari on a computer.</p>
     <ol class="steps" id="steps">
       <li><strong>Save the model file.</strong> Open this link, then save the file (4.3 GB) to Files:<br>
         <a id="hfLink" href="https://huggingface.co/LiquidAI/LFM3-Omni-2B/resolve/main/model.safetensors" target="_blank" rel="noopener">LiquidAI/LFM3-Omni-2B · model.safetensors</a>
@@ -114,42 +237,88 @@
       <select id="ctx"><option>2048</option><option selected>4096</option><option>8192</option></select>
     </div>
     <div class="row">
-      <button class="primary" id="loadBtn" disabled>Load the model</button>
-      <button id="cachedBtn" hidden>Load the saved copy</button>
-      <button id="hubBtn" hidden>Download from Hugging Face instead</button>
-      <button id="dropBtn" hidden>Remove the saved copy</button>
+      <button class="pill" id="loadBtn" disabled>Load the model</button>
+      <button class="pill ghost" id="cachedBtn" hidden>Load the saved copy</button>
+      <button class="pill ghost" id="hubBtn" hidden>Download from Hugging Face instead</button>
     </div>
     <progress id="prog" max="1" value="0" hidden></progress>
     <div class="status" id="loadMsg"></div>
+    <button class="linkish" id="dropBtn" hidden>Remove the saved copy</button>
   </section>
-  <div class="msgs" id="msgs"></div>
+  <section class="col" id="hello" hidden>
+    <h2>What can I help with?</h2>
+    <div class="hints">
+      <button id="hintVoice" hidden><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Hold the mic and talk</button>
+      <button id="hintLive" hidden><svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="3"/><path d="m16 10 5-3v10l-5-3"/></svg>Talk with the camera on</button>
+      <button id="hintPhoto" hidden><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="15" rx="3"/><circle cx="12" cy="12.5" r="3.5"/><path d="M9 5l1.5-2h3L15 5"/></svg>Ask about a photo</button>
+    </div>
+  </section>
+  <div class="msgs col" id="msgs"></div>
 </main>
 <footer>
-  <div class="attach" id="attach" hidden><span id="attachThumb"></span><span class="muted">Photo attached</span><button id="attachDrop">Remove</button></div>
-  <div class="attach" id="voiceChip" hidden><span class="muted" id="voiceLen">Voice message</span><button id="voiceDrop">Remove</button></div>
-  <div class="attach" id="voiceFileRow" hidden><span class="muted" id="voiceErr"></span><button id="voiceFileBtn">Choose a recording</button>
-    <input type="file" id="voiceFile" accept="audio/*,video/*" hidden></div>
-  <div class="composer">
-    <button id="photoBtn" disabled hidden aria-label="Add a photo">Photo</button>
-    <button id="micBtn" disabled hidden aria-label="Record a voice message">Voice</button>
-    <input type="file" id="photo" accept="image/*" hidden>
+  <div class="dock" id="dock" hidden>
+    <button class="soap" id="buddy" data-state="idle" aria-label="Hold to talk">
+      <span class="film"></span>
+      <svg class="face" viewBox="0 0 100 100" aria-hidden="true"><g class="eyes"><ellipse class="eye" cx="39" cy="45" rx="3.6" ry="5.4"/><ellipse class="eye" cx="61" cy="45" rx="3.6" ry="5.4"/></g><path class="smile" d="M43 60 Q50 66.5 57 60"/><ellipse class="mouth" cx="50" cy="61.5" rx="6" ry="5"/></svg>
+    </button>
+    <p id="buddyState">Hold to talk</p>
+  </div>
+  <div class="composer panel">
+    <div class="tray">
+      <div class="att" id="attach" hidden><span id="attachThumb"></span><span>Photo</span>
+        <button id="attachDrop" aria-label="Remove the photo"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+      <div class="att" id="voiceChip" hidden><svg viewBox="0 0 24 24"><path d="M3 10v4M7 7v10M11 4v16M15 8v8M19 11v2"/></svg><span id="voiceLen">Voice message</span>
+        <button id="voiceDrop" aria-label="Remove the voice message"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+      <div class="att" id="voiceFileRow" hidden><span id="voiceErr"></span><button class="textbtn" id="voiceFileBtn">Choose a recording</button>
+        <input type="file" id="voiceFile" accept="audio/*,video/*" hidden></div>
+    </div>
     <textarea id="input" rows="1" placeholder="Load the model to start" disabled></textarea>
-    <button class="primary" id="send" disabled>Send</button>
+    <div class="tools">
+      <button id="photoBtn" class="icon" disabled hidden aria-label="Add a photo" title="Add a photo"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+      <input type="file" id="photo" accept="image/*" hidden>
+      <button id="liveBtn" class="icon" disabled hidden aria-label="Live: talk with the camera on" title="Live with the camera"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="3"/><path d="m16 10 5-3v10l-5-3"/></svg></button>
+      <span class="grow"></span>
+      <button id="talkBtn" class="round" disabled hidden aria-label="Hold to talk" aria-pressed="false" title="Hold to talk"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+      <button id="send" class="round" disabled aria-label="Send"><svg class="go" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg><svg class="stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg></button>
+    </div>
   </div>
 </footer>
 <div id="memory"><div class="sheet">
-  <div class="row" style="justify-content:space-between"><h2 style="margin:0;font-size:17px">Memory</h2><button id="memClose">Close</button></div>
+  <div class="row" style="justify-content:space-between"><h2>Memory</h2><button class="icon" id="memClose" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
   <p class="muted">What the assistant has learned about you across chats. It stays on this device and is loaded into the model's state when a chat starts, so nothing is looked up while you talk.</p>
   <label class="row lbl" for="useMem"><input type="checkbox" id="useMem" checked> Use memory in new chats</label>
   <div id="notes"></div>
   <div class="row">
-    <button class="primary" id="learn">Learn from this chat</button>
+    <button class="pill" id="learn">Learn from this chat</button>
     <button id="newChat">New chat</button>
     <button id="copyMem">Copy as JSON</button>
     <button id="clearMem">Forget everything</button>
   </div>
   <p class="muted" id="memMsg"></p>
 </div></div>
+<div id="live" hidden>
+  <video id="liveVideo" playsinline muted autoplay></video>
+  <div class="veil"></div>
+  <div class="ltop"><span class="badge"><span class="dot"></span>Live</span>
+    <span class="badge" id="liveModel">On this device</span></div>
+  <div class="lmid">
+    <div class="lcard" id="liveFallback" hidden>
+      <p id="liveWhy">Pages on claude.ai can't open the camera or microphone directly. Record a short video instead: point the camera, say your question, then stop. The answer is spoken back.</p>
+      <label class="pill" for="liveClip"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="3"/><path d="m16 10 5-3v10l-5-3"/></svg>Record a video<input type="file" id="liveClip" accept="video/*" capture="environment"></label>
+    </div>
+    <button class="soap" id="orb" data-state="idle" aria-label="Hold to talk">
+      <span class="film"></span>
+      <svg class="face" viewBox="0 0 100 100" aria-hidden="true"><g class="eyes"><ellipse class="eye" cx="39" cy="45" rx="3.6" ry="5.4"/><ellipse class="eye" cx="61" cy="45" rx="3.6" ry="5.4"/></g><path class="smile" d="M43 60 Q50 66.5 57 60"/><ellipse class="mouth" cx="50" cy="61.5" rx="6" ry="5"/></svg>
+    </button>
+    <p id="liveState">Starting…</p>
+    <p class="caption" id="liveCaption"></p>
+  </div>
+  <div class="lbot">
+    <button class="gbtn" id="liveCam" aria-label="Turn the camera off" aria-pressed="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="3"/><path d="m16 10 5-3v10l-5-3"/></svg></button>
+    <button class="gbtn" id="liveFlip" aria-label="Switch camera"><svg viewBox="0 0 24 24"><path d="M20 7h-3l-2-3H9L7 7H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1z"/><path d="M9 13a3 3 0 0 1 5.2-2M15 13a3 3 0 0 1-5.2 2"/><path d="M14.5 9.5v1.7h-1.7M9.5 16.5v-1.7h1.7"/></svg></button>
+    <button class="gbtn end" id="liveEnd" aria-label="End Live"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+</div>
 <script src="./weights.js"></script>
 <script type="module" src="./app.js"></script>
 </body>

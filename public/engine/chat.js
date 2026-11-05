@@ -7,8 +7,10 @@ import { Tokenizer } from "./tokenizer.js";
 import { SCFG } from "./speech.js";
 
 export const SYSTEM = "You are a helpful personal assistant.";
-// spoken replies: the model's interleaved text-and-speech mode (its recommended system prompt)
-export const SPEECH_SYSTEM = "You are a helpful personal assistant. Respond with interleaved text and audio.";
+// spoken replies: the model's interleaved text-and-speech mode. The model card's instruction for it ends the system
+// prompt, after any memory notes ("append the corresponding instructions to the end of your system prompt").
+export const SPEECH_INSTRUCTION = "Respond with interleaved text and audio.";
+export const SPEECH_SYSTEM = `${SYSTEM} ${SPEECH_INSTRUCTION}`;
 const HEADER = "Notes about the user, curated from earlier conversations. Use a note only when it matters for what the " +
   "user is asking now, and do not mention notes that do not matter. If the user asks about something these notes do " +
   "not cover, say you don't know it yet.";
@@ -150,8 +152,8 @@ export class Chat {
   async newChat() {
     const m = this.model;
     m.reset();
-    const base = this.spoken ? SPEECH_SYSTEM : SYSTEM;
-    const sys = this.useMemory ? this.experience.systemPrompt(base) : base;
+    let sys = this.useMemory ? this.experience.systemPrompt(SYSTEM) : SYSTEM;
+    if (this.spoken) sys = sys === SYSTEM ? SPEECH_SYSTEM : `${sys}\n\n${SPEECH_INSTRUCTION}`;
     const ids = this.ids(systemBlock(sys));
     const t0 = performance.now();
     await m.prefill(ids, { sample: false });
@@ -190,10 +192,47 @@ export class Chat {
   // speech only until the end-of-audio frame, then text to the end of the turn. depth: a DepthDecoder, codec: a Codec
   // (engine/speech.js). onText(text) streams the reply's text, onAudio(Float32Array, 24 kHz) its sound, about every
   // 320 ms. greedy: argmax codes in the fixed codebook order (tests).
-  async speak(text, { onText, onAudio, shouldStop, media = null, depth, codec, greedy = false, maxFrames = 750, maxText = 400 } = {}) {
-    const m = this.model, { nText, nAudio, EOS, textEnd, imEnd } = SCFG;
+  async speak(text, opts = {}) {
+    const media = opts.media || null;
     const turn = (this.pendingEnd ? "<|im_end|>\n" : "") + turnUser(text, media) + "<|mixed_start|>";
     const ids = mediaIds(this.ids(turn), this.tok, media);
+    return this.spokenReply(ids, { text, media: mediaList(media).map((x) => x.token), promptTokens: ids.length }, opts);
+  }
+
+  // A spoken turn streamed in while the user talks (push to talk), as the official prefill_audio does: openTurn()
+  // prefills the turn's opening and any picture at the press, feedAudio() the speech encoder's rows as they become
+  // final, and closeTurn() the closing tokens at the release, then answers like speak(). The model ends up in the
+  // same state as speak() with the whole clip, so the answer starts as soon as the user lets go.
+  async openTurn(picture = null) { // picture: { emb, rows } from the vision tower
+    const m = this.model;
+    let ids = this.ids((this.pendingEnd ? "<|im_end|>\n" : "") + "<|im_start|>user\n");
+    if (picture) {
+      m.setExternalEmbeddings(picture.emb);
+      ids = ids.concat(this.ids("<|vision_start|>"), Array.from({ length: picture.rows }, (_, r) => 0x80000000 + r), this.ids("<|vision_end|>"));
+    }
+    ids = ids.concat(this.ids("<|vision_start|>"));
+    await m.prefill(ids, { sample: false });
+    this.pendingEnd = false;
+    this.turn = { rows: 0, media: picture ? ["<|image|>", "<|audio|>"] : ["<|audio|>"], tokens: ids.length };
+  }
+  async feedAudio(emb, rows) { // rows [0, rows) of emb are final: those not in the model yet go in
+    const t = this.turn;
+    if (!t || rows <= t.rows) return;
+    this.model.setExternalEmbeddings(emb);
+    const ids = [];
+    for (let r = t.rows; r < rows; r++) ids.push(0x80000000 + r);
+    await this.model.prefill(ids, { sample: false });
+    t.rows = rows;
+    t.tokens += ids.length;
+  }
+  async closeTurn(text, opts = {}) {
+    const t = this.turn, ids = this.ids(`<|vision_end|>${text}<|im_end|>\n<|im_start|>assistant\n<think></think><|mixed_start|>`);
+    this.turn = null;
+    return this.spokenReply(ids, { text, media: t.media, promptTokens: t.tokens + ids.length, streamed: t.rows }, opts);
+  }
+
+  async spokenReply(ids, info, { onText, onAudio, shouldStop, depth, codec, greedy = false, maxFrames = 750, maxText = 400 } = {}) {
+    const m = this.model, { nText, nAudio, EOS, textEnd, imEnd } = SCFG;
     const t0 = performance.now();
     await m.prefill(ids, { sample: true });
     const t1 = performance.now();
@@ -234,10 +273,10 @@ export class Chat {
     await play(true);
     const t2 = performance.now();
     const reply = this.decode(textIds);
-    this.messages.push({ role: "user", content: text, media: mediaList(media).map((x) => x.token) }, { role: "assistant", content: reply });
+    this.messages.push({ role: "user", content: info.text, media: info.media }, { role: "assistant", content: reply });
     this.pendingEnd = true;
     return { reply, textIds, frames, seconds: samples / 24000,
-      stats: { promptTokens: ids.length, prefillMs: t1 - t0, frames: frames.length, ms: t2 - t1, pos: m.pos } };
+      stats: { promptTokens: info.promptTokens, streamed: info.streamed || 0, prefillMs: t1 - t0, frames: frames.length, ms: t2 - t1, pos: m.pos } };
   }
 
   // System 3's write path: one short extraction per user message of the finished chat (between chats, off the

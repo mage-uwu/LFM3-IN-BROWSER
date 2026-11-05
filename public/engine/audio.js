@@ -34,33 +34,82 @@ function melFilters() { // [128, 201]: transformers' mel_filter_bank(norm="slane
   }
   return FILTERS;
 }
+// one log-mel frame: samples [t * hop, t * hop + nfft) of x (zeros past its end) -> out[m * stride + col]
+let TABLES = null;
+function melFrame(x, t, out, stride, col = t) {
+  const { nfft, hop, MEL } = ACFG, nb = nfft / 2 + 1;
+  if (!TABLES) {
+    const win = new Float64Array(nfft), cs = new Float64Array(nfft), sn = new Float64Array(nfft);
+    for (let i = 0; i < nfft; i++) {
+      win[i] = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / nfft);   // periodic Hann
+      cs[i] = Math.cos((2 * Math.PI * i) / nfft); sn[i] = Math.sin((2 * Math.PI * i) / nfft);
+    }
+    TABLES = { win, cs, sn, fr: new Float64Array(nfft), pw: new Float64Array(nb) };
+  }
+  const { win, cs, sn, fr, pw } = TABLES, F = melFilters();
+  for (let i = 0; i < nfft; i++) { const j = t * hop + i; fr[i] = (j < x.length ? x[j] : 0) * win[i]; }
+  for (let k = 0; k < nb; k++) { // the 400-point DFT, bin by bin
+    let re = 0, im = 0, idx = 0;
+    for (let i = 0; i < nfft; i++) { re += fr[i] * cs[idx]; im -= fr[i] * sn[idx]; idx += k; if (idx >= nfft) idx -= nfft; }
+    pw[k] = re * re + im * im;
+  }
+  for (let m = 0; m < MEL; m++) {
+    let s = 0;
+    for (let k = 0; k < nb; k++) s += F[m * nb + k] * pw[k];
+    out[m * stride + col] = (Math.max(Math.log10(s), -12) + 4) / 4;
+  }
+}
+// frames for n samples: the extractor pads the end to whole hops (at least one frame)
+const frameCount = (n) => {
+  const { nfft, hop } = ACFG;
+  const padded = n < nfft ? nfft : n + (((-(n - nfft)) % hop) + hop) % hop;
+  return 1 + (padded - nfft) / hop;
+};
 // mono 16 kHz samples -> { mel: Float32Array [128, frames] (mel-major), frames, tokens: ceil(frames / 8) }
 export function logMel(samples) {
-  const { nfft, hop, MEL } = ACFG, nb = nfft / 2 + 1;
-  const n = samples.length;
-  const padded = n < nfft ? nfft : n + (((-(n - nfft)) % hop) + hop) % hop;
-  const frames = 1 + (padded - nfft) / hop;
-  const x = new Float32Array(padded); x.set(samples);
-  const win = new Float64Array(nfft), cs = new Float64Array(nfft), sn = new Float64Array(nfft);
-  for (let i = 0; i < nfft; i++) {
-    win[i] = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / nfft);   // periodic Hann
-    cs[i] = Math.cos((2 * Math.PI * i) / nfft); sn[i] = Math.sin((2 * Math.PI * i) / nfft);
-  }
-  const F = melFilters(), mel = new Float32Array(MEL * frames), fr = new Float64Array(nfft), pw = new Float64Array(nb);
-  for (let t = 0; t < frames; t++) {
-    for (let i = 0; i < nfft; i++) fr[i] = x[t * hop + i] * win[i];
-    for (let k = 0; k < nb; k++) { // the 400-point DFT, bin by bin
-      let re = 0, im = 0, idx = 0;
-      for (let i = 0; i < nfft; i++) { re += fr[i] * cs[idx]; im -= fr[i] * sn[idx]; idx += k; if (idx >= nfft) idx -= nfft; }
-      pw[k] = re * re + im * im;
-    }
-    for (let m = 0; m < MEL; m++) {
-      let s = 0;
-      for (let k = 0; k < nb; k++) s += F[m * nb + k] * pw[k];
-      mel[m * frames + t] = (Math.max(Math.log10(s), -12) + 4) / 4;
-    }
-  }
+  const frames = frameCount(samples.length), mel = new Float32Array(ACFG.MEL * frames);
+  for (let t = 0; t < frames; t++) melFrame(samples, t, mel, frames);
   return { mel, frames, tokens: Math.ceil(frames / 8) };
+}
+
+// The same log-mel computed while the audio arrives (push to talk): frame t is final once samples up to
+// t * 160 + 400 are in, and finish() pads the end as logMel does, so the frames equal logMel of the whole clip.
+// The encoder is causal and token t reads frames up to 8t + 7, so the first floor(frames / 8) tokens of a partial
+// encoding are already the final ones (complete()).
+export class MelStream {
+  constructor(maxSeconds = 30) {
+    this.x = new Float32Array(ACFG.rate * maxSeconds + ACFG.nfft);
+    this.n = 0;
+    this.cols = new Float32Array(ACFG.MEL * (frameCount(this.x.length) + 1));   // frame-major while streaming
+    this.frames = 0;
+    this.done = false;
+  }
+  get seconds() { return this.n / ACFG.rate; }
+  get full() { return this.n >= this.x.length - ACFG.nfft; }
+  push(samples) {
+    const k = Math.min(samples.length, this.x.length - ACFG.nfft - this.n);
+    if (k > 0) { this.x.set(samples.subarray(0, k), this.n); this.n += k; }
+    const { hop, nfft, MEL } = ACFG, col = new Float32Array(MEL);
+    const view = this.x.subarray(0, this.n);
+    while (this.frames * hop + nfft <= this.n) { this.frame(view, col); }
+  }
+  frame(view, col) {
+    melFrame(view, this.frames, col, 1, 0);
+    this.cols.set(col, this.frames * ACFG.MEL);
+    this.frames++;
+  }
+  finish() { // the last frames, zero-padded like logMel
+    const total = frameCount(this.n), col = new Float32Array(ACFG.MEL), view = this.x.subarray(0, this.n);
+    while (this.frames < total) this.frame(view, col);
+    this.done = true;
+  }
+  complete() { return this.done ? Math.ceil(this.frames / 8) : Math.floor(this.frames / 8); }   // tokens that are final
+  // the [128, width] mel-major layout the encoder reads: the frames so far, zeros after them
+  layout(width = this.frames) {
+    const { MEL } = ACFG, mel = new Float32Array(MEL * width);
+    for (let t = 0; t < this.frames; t++) for (let m = 0; m < MEL; m++) mel[m * width + t] = this.cols[t * MEL + m];
+    return mel;
+  }
 }
 
 // ---- kernels ---------------------------------------------------------------------------------------------------
@@ -324,6 +373,7 @@ export class Audio {
     gemm(P.l2, this.p1, this.emb, T);
     ew(k.bias, T * OUT, [P.l2b, this.emb], [OUT, T * OUT, 0, 0]);
     const plan = { steps, T };
+    if (this.plans.size >= 24) this.plans.delete(this.plans.keys().next().value);   // the oldest width
     this.plans.set(frames, plan);
     return plan;
   }
