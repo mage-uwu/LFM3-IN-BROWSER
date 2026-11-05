@@ -29,7 +29,7 @@ CASES = [
                    "criteria": {"billing": "Payments and charges", "delivery": "Shipping and parcels",
                                 "login": "Signing in to the account"}},
         "anger": {"type": "score", "instructions": "How upset is the customer?",
-                  "criteria": {"calm": "No frustration", "annoyed": "Some frustration", "angry": "Strong frustration"}},
+                  "criteria": ["Calm", "Annoyed", "Angry"]},
     }, None),
     ("json", {"order": {"id": 4411, "items": 3, "paid": True}, "message": "Where is my order? It is late."}, {
         "late": {"type": "noul", "instructions": "Does the customer say the order is late?"},

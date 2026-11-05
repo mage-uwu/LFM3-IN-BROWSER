@@ -181,9 +181,17 @@ def main():
     from transformers import AutoModelForMultimodalLM, AutoProcessor
 
     mid = args.repo
-    model = AutoModelForMultimodalLM.from_pretrained(mid, dtype=torch.bfloat16, device_map="cuda",
-                                                     trust_remote_code=True).eval()
-    proc = AutoProcessor.from_pretrained(mid, trust_remote_code=True)
+    try:
+        model = AutoModelForMultimodalLM.from_pretrained(mid, dtype=torch.bfloat16, device_map="cuda",
+                                                         trust_remote_code=True).eval()
+    except ValueError:  # a release with its own classes (d1-Omni-2B: LFM3-Omni weights with the decision API's
+        # remote code): transformers' own LFM3-Omni reads the same weights, with plain causal attention
+        model = AutoModelForMultimodalLM.from_pretrained(mid, dtype=torch.bfloat16, device_map="cuda",
+                                                         trust_remote_code=False).eval()
+    try:
+        proc = AutoProcessor.from_pretrained(mid, trust_remote_code=True)
+    except Exception:  # noqa: BLE001 - the release's processor may need its remote code's extras
+        proc = AutoProcessor.from_pretrained(mid, trust_remote_code=False)
     tok = proc.tokenizer
     lm, head = model.model.language_model, model.lm_head
     bos = tok.convert_tokens_to_ids("<|startoftext|>")
