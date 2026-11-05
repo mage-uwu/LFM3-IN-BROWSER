@@ -82,7 +82,7 @@ def main():
             page.click("#setBtn")
             page.wait_for_timeout(500)
             about = page.inner_text("#settings")
-            res["about_credits"] = all(s in about for s in ("Mage / Toaster Club LLC", "Liquid AI", "LFM Open License v1.0", "Apache License 2.0"))
+            res["about_credits"] = all(s in about for s in ("Mage / Toaster Club LLC", "Liquid AI", "LFM Open License v1.0", "Apache License 2.0", "github.com/mage-uwu/LFM3-IN-BROWSER"))
             res["about_links"] = page.evaluate("() => [...document.querySelectorAll('#settings a')].map((a) => a.getAttribute('href'))")
             page.screenshot(path=os.path.join(args.out, "settings.png"))
             page.fill("#sysPrompt", "Always answer in French.")

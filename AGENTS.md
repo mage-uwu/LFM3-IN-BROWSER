@@ -98,7 +98,8 @@ results/                 measured results quoted in the README
    - the About section in the app's Settings, and the credit line on the setup card;
    - the SPDX header at the top of each source file (add it to new ones).
 
-   If you add a file derived from the model, list it in `NOTICE` as modified.
+   If you add a file derived from the model, list it in `NOTICE` as modified. Credit the project as "Mage / Toaster
+   Club LLC" (the copyright holder is Toaster Club LLC).
 7. **Test before you push to `main`:**
    - static checks on everything you touched: `node --check` for JavaScript, `python3 -m pyflakes` for Python;
    - for engine changes, the GPU tests in [docs/TESTING.md](docs/TESTING.md);
