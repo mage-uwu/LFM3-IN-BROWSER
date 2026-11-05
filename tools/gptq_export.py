@@ -181,17 +181,23 @@ def main():
     from transformers import AutoModelForMultimodalLM, AutoProcessor
 
     mid = args.repo
-    try:
-        model = AutoModelForMultimodalLM.from_pretrained(mid, dtype=torch.bfloat16, device_map="cuda",
-                                                         trust_remote_code=True).eval()
-    except ValueError:  # a release with its own classes (d1-Omni-2B: LFM3-Omni weights with the decision API's
-        # remote code): transformers' own LFM3-Omni reads the same weights, with plain causal attention
-        model = AutoModelForMultimodalLM.from_pretrained(mid, dtype=torch.bfloat16, device_map="cuda",
-                                                         trust_remote_code=False).eval()
-    try:
-        proc = AutoProcessor.from_pretrained(mid, trust_remote_code=True)
-    except Exception:  # noqa: BLE001 - the release's processor may need its remote code's extras
-        proc = AutoProcessor.from_pretrained(mid, trust_remote_code=False)
+    base = "LiquidAI/LFM3-Omni-2B"
+    # the architecture (and the processor, for the calibration text) from LFM3-Omni-2B; a release built on it with its
+    # own classes (d1-Omni-2B, the decision model) has the same tensors, which replace the base model's here
+    model = AutoModelForMultimodalLM.from_pretrained(base, dtype=torch.bfloat16, device_map="cuda",
+                                                     trust_remote_code=True).eval()
+    proc = AutoProcessor.from_pretrained(base, trust_remote_code=True)
+    if mid != base:
+        from safetensors.torch import load_file
+        weights = load_file(hf_hub_download(mid, "model.safetensors"))
+        own = model.state_dict()
+        lm_keys = [k for k in own if ".language_model." in k]
+        missing = [k for k in lm_keys if k not in weights]
+        assert not missing, f"{mid} lacks {len(missing)} language-model tensors, e.g. {missing[:3]}"
+        model.load_state_dict({k: v for k, v in weights.items() if k in own}, strict=False)
+        model.tie_weights()
+        log(f"weights from {mid}: {sum(k in own for k in weights)} of {len(weights)} tensors, all {len(lm_keys)} language-model ones")
+        del weights
     tok = proc.tokenizer
     lm, head = model.model.language_model, model.lm_head
     bos = tok.convert_tokens_to_ids("<|startoftext|>")

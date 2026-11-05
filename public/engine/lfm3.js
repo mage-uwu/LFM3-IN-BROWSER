@@ -508,23 +508,7 @@ export class LFM3 {
     pass.setBindGroup(0, this.firstNorm);
     pass.dispatchWorkgroups(M);
     for (let i = 0; i < CFG.layers; i++) {
-      for (const s of this.plan[i]) {
-        switch (s.kind) {
-          case "gemv": pass.setPipeline(k.gemv.pipelines[s.quant + pipe]); pass.setBindGroup(0, s.bg); pass.dispatchWorkgroups(Math.ceil(s.N / 8)); break;
-          case "conv": pass.setPipeline(k.conv.pipelines.main); pass.setBindGroup(0, s.bg); pass.dispatchWorkgroups(CFG.D / 256); break;
-          case "rope": pass.setPipeline(k.rope.pipelines.main); pass.setBindGroup(0, s.bg); pass.dispatchWorkgroups(24, M); break;
-          case "attn": {
-            const last = pos + M - 1;
-            pass.setPipeline(k.attn.pipelines.main); pass.setBindGroup(0, s.bg);
-            // a sliding window (256 keys from each query's own start) is one chunk; full layers span the prefix
-            pass.dispatchWorkgroups(16, M, s.full ? Math.min(this.maxChunks, Math.ceil((last + 1) / 256)) : 1);
-            break;
-          }
-          case "comb": pass.setPipeline(k.comb.pipelines.main); pass.setBindGroup(0, s.bg); pass.dispatchWorkgroups(16, M); break;
-          case "pan": pass.setPipeline(k.pan.pipelines.main); pass.setBindGroup(0, s.bg); pass.dispatchWorkgroups(M); break;
-          case "silu": pass.setPipeline(k.silu.pipelines.main); pass.setBindGroup(0, s.bg); pass.dispatchWorkgroups(Math.ceil(CFG.I / 256), M); break;
-        }
-      }
+      for (const s of this.plan[i]) this.encodeStep(pass, s, M, pos);
       if (debugBuf) {
         pass.end();
         enc.copyBufferToBuffer(this.h, (M - 1) * CFG.D * 4, debugBuf, i * CFG.D * 4, CFG.D * 4);
@@ -532,6 +516,26 @@ export class LFM3 {
       }
     }
     pass.end();
+  }
+
+  // one step of a layer's plan over M tokens at position pos
+  encodeStep(pass, s, M, pos) {
+    const k = this.k, pipe = M === 1 ? "m1" : "m16";  // + the matrix's quant type
+    switch (s.kind) {
+      case "gemv": pass.setPipeline(k.gemv.pipelines[s.quant + pipe]); pass.setBindGroup(0, s.bg); pass.dispatchWorkgroups(Math.ceil(s.N / 8)); break;
+      case "conv": pass.setPipeline(k.conv.pipelines.main); pass.setBindGroup(0, s.bg); pass.dispatchWorkgroups(CFG.D / 256); break;
+      case "rope": pass.setPipeline(k.rope.pipelines.main); pass.setBindGroup(0, s.bg); pass.dispatchWorkgroups(24, M); break;
+      case "attn": {
+        const last = pos + M - 1;
+        pass.setPipeline(k.attn.pipelines.main); pass.setBindGroup(0, s.bg);
+        // a sliding window (256 keys from each query's own start) is one chunk; full layers span the prefix
+        pass.dispatchWorkgroups(16, M, s.full ? Math.min(this.maxChunks, Math.ceil((last + 1) / 256)) : 1);
+        break;
+      }
+      case "comb": pass.setPipeline(k.comb.pipelines.main); pass.setBindGroup(0, s.bg); pass.dispatchWorkgroups(16, M); break;
+      case "pan": pass.setPipeline(k.pan.pipelines.main); pass.setBindGroup(0, s.bg); pass.dispatchWorkgroups(M); break;
+      case "silu": pass.setPipeline(k.silu.pipelines.main); pass.setBindGroup(0, s.bg); pass.dispatchWorkgroups(Math.ceil(CFG.I / 256), M); break;
+    }
   }
 
   encodeHead(enc, M, advance, noStop = false) {
@@ -625,6 +629,100 @@ export class LFM3 {
       }
       if (stop || st[5] === 1 || shouldStop?.()) break;
     }
+    return out;
+  }
+
+  // ---- d1 decision models (LiquidAI/d1-*): one pass over a state and the questions packed after it, with d1's "set"
+  // attention on the full-attention layers (kernels.js ATTN_MASKED): the state reads every token both ways, a question
+  // the state and itself. A state token needs the keys of the tokens after it, so each layer runs over the whole
+  // sequence (in chunks of K.MMAX) before the next; convolution and sliding-window layers stay causal, as d1 keeps them.
+  //   ids: the packed prompt (media rows as 0x80000000 + r, as prefill takes them); state: the state's length;
+  //   groups[t]: each token's question (0 on the state, 1..N); slots: the positions read.
+  // Returns each slot's logits over the vocabulary (Float32Array[CFG.V]). It overwrites the caches: reset() after.
+  async decide(ids, { state, groups, slots }) {
+    const d = this.device, k = this.k, T = ids.length, MM = K.MMAX, D = CFG.D, nC = Math.ceil(T / MM);
+    if (!T || T > this.ctx) throw new Error(`a decision prompt of ${T} tokens does not fit the ${this.ctx}-token context`);
+    if (groups.length !== T) throw new Error("decide() takes one group per token");
+    this.reset();
+    const QW = 3088, QH = 16 * 128;   // a row of the q/k/v/gate projection, and of the roped queries
+    const temp = [];
+    const tb = (size, usage) => { const x = buf(d, size, usage); temp.push(x); return x; };
+    const tu = (words) => { const x = ubuf(d, words); temp.push(x); return x; };
+    const H = tb(T * D * 4), XN = tb(T * D * 4), QKV = tb(T * QW * 4), Q = tb(T * QH * 4);
+    const idsAll = tb(nC * MM * 4), grp = tb(T * 4), stAll = tb(nC * 32);
+    const padded = new Uint32Array(nC * MM);
+    padded.set(ids.map((x) => x >>> 0));
+    d.queue.writeBuffer(idsAll, 0, padded);
+    d.queue.writeBuffer(grp, 0, Uint32Array.from(groups));
+    const states = new Uint32Array(nC * 8);
+    for (let c = 0; c < nC; c++) { states[c * 8] = c * MM; states[c * 8 + 1] = Math.min(MM, T - c * MM); }
+    d.queue.writeBuffer(stAll, 0, states);
+    k.attnM ||= new Kernel(d, ["u", "r", "r", "r", "r", "w", "w", "r"], { main: K.ATTN_MASKED }, "attn_masked");
+    k.combM ||= new Kernel(d, ["u", "r", "r", "r", "r", "w"], { main: K.ATTN_COMBINE_MASKED }, "attn_combine_masked");
+    const masked = this.w.layers.map((L) => (L.type !== "full" ? null : {
+      attn: k.attnM.bind([tu([L.slots, 0, 0, this.maxChunks, T, state, 0, 0]), this.st, this.qbuf, L.kc, L.vc, this.pml, this.po, grp]),
+      comb: k.combM.bind([tu([this.maxChunks, 0, T, 0]), this.st, this.pml, this.po, this.tA, this.tB]),
+    }));
+    const rows = (c) => Math.min(MM, T - c * MM);
+    const load = (enc, c, pairs) => {   // a chunk's state word and rows into the working buffers
+      enc.copyBufferToBuffer(stAll, c * 32, this.st, 0, 32);
+      for (const [src, dst, w] of pairs) enc.copyBufferToBuffer(src, c * MM * w * 4, dst, 0, rows(c) * w * 4);
+    };
+    const save = (enc, c, pairs) => { for (const [src, dst, w] of pairs) enc.copyBufferToBuffer(src, 0, dst, c * MM * w * 4, rows(c) * w * 4); };
+    const run = (enc, steps, c) => { const pass = enc.beginComputePass(); for (const s of steps) this.encodeStep(pass, s, rows(c), c * MM); pass.end(); };
+    let enc = d.createCommandEncoder();
+    for (let c = 0; c < nC; c++) {   // embeddings, and the first layer's norm
+      enc.copyBufferToBuffer(stAll, c * 32, this.st, 0, 32);
+      enc.copyBufferToBuffer(idsAll, c * MM * 4, this.ids, 0, MM * 4);
+      const pass = enc.beginComputePass();
+      pass.setPipeline(k.embed.pipelines.main); pass.setBindGroup(0, this.embedBG[0]); pass.dispatchWorkgroups(D / 256, rows(c));
+      pass.setPipeline(k.rms.pipelines.main); pass.setBindGroup(0, this.firstNorm); pass.dispatchWorkgroups(rows(c));
+      pass.end();
+      save(enc, c, [[this.h, H, D], [this.xn, XN, D]]);
+    }
+    d.queue.submit([enc.finish()]);
+    for (let i = 0; i < CFG.layers; i++) {
+      const steps = this.plan[i], m = masked[i];
+      enc = d.createCommandEncoder();
+      if (!m) {   // convolution and sliding-window layers: causal, chunk after chunk
+        for (let c = 0; c < nC; c++) {
+          load(enc, c, [[H, this.h, D], [XN, this.xn, D]]);
+          run(enc, steps, c);
+          save(enc, c, [[this.h, H, D], [this.xn, XN, D]]);
+        }
+      } else {    // full attention: every chunk's keys and values first (q/k/v/gate GEMV, norms, RoPE), then the rest
+        for (let c = 0; c < nC; c++) {
+          load(enc, c, [[XN, this.xn, D]]);
+          run(enc, steps.slice(0, 2), c);
+          save(enc, c, [[this.tA, QKV, QW], [this.qbuf, Q, QH]]);
+        }
+        for (let c = 0; c < nC; c++) {
+          load(enc, c, [[H, this.h, D], [QKV, this.tA, QW], [Q, this.qbuf, QH]]);
+          const pass = enc.beginComputePass();
+          pass.setPipeline(k.attnM.pipelines.main); pass.setBindGroup(0, m.attn); pass.dispatchWorkgroups(16, rows(c), Math.ceil(T / 256));
+          pass.setPipeline(k.combM.pipelines.main); pass.setBindGroup(0, m.comb); pass.dispatchWorkgroups(16, rows(c));
+          for (const s of steps.slice(4)) this.encodeStep(pass, s, rows(c), c * MM);   // o_proj, the FFN and their norms
+          pass.end();
+          save(enc, c, [[this.h, H, D], [this.xn, XN, D]]);
+        }
+      }
+      d.queue.submit([enc.finish()]);
+    }
+    const out = [];   // XN holds the final norm of every position: the head at each slot
+    for (const at of slots) {
+      enc = d.createCommandEncoder();
+      enc.copyBufferToBuffer(XN, at * D * 4, this.hlast, 0, D * 4);
+      const pass = enc.beginComputePass();
+      pass.setPipeline(k.gemv.pipelines[this.head.quant + "m1"]); pass.setBindGroup(0, this.head.bg); pass.dispatchWorkgroups(CFG.V / 8);
+      pass.end();
+      const rb = buf(d, CFG.V * 4, U.MAP_READ | U.COPY_DST);
+      enc.copyBufferToBuffer(this.logits, 0, rb, 0, CFG.V * 4);
+      d.queue.submit([enc.finish()]);
+      await rb.mapAsync(GPUMapMode.READ);
+      out.push(new Float32Array(rb.getMappedRange().slice(0)));
+      rb.destroy();
+    }
+    for (const x of temp) x.destroy();
     return out;
   }
 

@@ -116,7 +116,7 @@ def main():
         seqs = eng._sequences([(state, qs, med or [])])
         captured.clear()
         out = model.system_one(state, questions, media=med)
-        probs = eng.probabilities(state, questions, med)
+        probs = eng.probabilities(state, list(questions.values()), med)
         case = {"name": name, "state": state, "questions": questions, "media": media, "answers": jsonable(out["answers"]),
                 "usage": jsonable(out.get("usage")), "probabilities": jsonable(probs), "slots": captured[:len(captured) // 2 or None],
                 "sequences": [{"first": k, "ids": ids, "text": tok.decode(ids), "state_len": jsonable(sl),

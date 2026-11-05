@@ -612,3 +612,24 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   let u = src[i / 2u];
   dst[p.offset + i] = bitcast<f32>(select(u << 16u, u & 0xffff0000u, (i & 1u) == 1u));
 }`;
+
+// ---- d1 decision passes: the attention of LiquidAI's d1 models on their full-attention layers ("set" mode). A
+// prompt is a state then N questions packed after it; each token's question is grp[t] (0 on the state). Token i
+// sees token j when either is in the state or both are in the same question: the state reads every token both ways,
+// a question reads the state and itself both ways, never another question. Sliding-window layers stay causal.
+// Derived from ATTN_PARTIAL / ATTN_COMBINE with keys over the whole sequence (p.total) instead of up to the query.
+const ATTN_MASK_CHECK = "let valid = kp <= pos;";
+const ATTN_MASK_VALUE = "if (kpos <= pos && pr[kk] > 0.0) {";
+export const ATTN_MASKED = ATTN_PARTIAL
+  .replace("struct P { slots: u32, ring: u32, window: u32, nchunks: u32 };",
+    "struct P { slots: u32, ring: u32, window: u32, nchunks: u32, total: u32, state: u32, pad1: u32, pad2: u32 };")
+  .replace("@group(0) @binding(6) var<storage, read_write> po: array<f32>;          // [M, 16, nchunks, 128]",
+    "@group(0) @binding(6) var<storage, read_write> po: array<f32>;          // [M, 16, nchunks, 128]\n" +
+    "@group(0) @binding(7) var<storage, read> grp: array<u32>;               // [total] each token's question, 0: the state")
+  .replace(ATTN_MASK_CHECK, "let valid = kp < p.total && (pos < p.state || kp < p.state || grp[pos] == grp[kp]);")
+  .replace(ATTN_MASK_VALUE, "if (kpos < p.total && pr[kk] > 0.0) {");
+export const ATTN_COMBINE_MASKED = ATTN_COMBINE
+  .replace("let nch = min((pos - lo) / 256u + 1u, p.nchunks);   // chunks this token's keys span (later ones are stale)",
+    "let nch = min((p.pad1 - 1u) / 256u + 1u, p.nchunks);   // every chunk of the sequence (p.pad1: its length)");
+if (ATTN_MASKED === ATTN_PARTIAL || !ATTN_MASKED.includes("grp[pos]") || !ATTN_MASKED.includes("kpos < p.total")
+  || ATTN_COMBINE_MASKED === ATTN_COMBINE) throw new Error("the d1 attention kernels did not derive from the causal ones");
