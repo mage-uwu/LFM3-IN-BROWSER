@@ -66,7 +66,7 @@ async function boot() {
   if (WEIGHTS) {
     $("steps").hidden = true;
     $("quantWrap").hidden = true;
-    $("assetNote").hidden = false;
+    $("assetWrap").hidden = false;
     $("assetNote").textContent = `The model's weights (4-bit, ${(WEIGHTS.total / 1e9).toFixed(2)} GB) are part of this page. ` +
       "The first load streams them into the GPU and keeps a copy in this browser's storage on the device (not in " +
       "Files), so later loads skip the download.";

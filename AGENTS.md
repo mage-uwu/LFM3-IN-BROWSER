@@ -96,7 +96,7 @@ results/                 measured results quoted in the README
 6. **Keep the licenses and credits intact.** That includes:
    - `LICENSE` (Apache-2.0, the code), `LICENSE-LFM.txt` (the model), `NOTICE`, `CITATION.cff`;
    - `public/licenses/`, `public/weights/NOTICE.txt`;
-   - the About section in the app's Settings, and the credit line on the setup card;
+   - the About section in the app's Settings, with its credit line;
    - the SPDX header at the top of each source file (add it to new ones).
 
    If you add a file derived from the model, list it in `NOTICE` as modified. Credit the project as "Mage / Toaster

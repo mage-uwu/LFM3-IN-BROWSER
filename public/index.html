@@ -95,6 +95,8 @@
   #setup { margin: 6vh auto 0; max-width: 30rem; border-radius: 24px; padding: 24px 22px; display: flex; flex-direction: column; gap: 14px; }
   #setup h2 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; text-wrap: balance; }
   .muted { color: var(--muted); font-size: 14.5px; margin: 0; }
+  .muted strong { color: var(--fg); font-weight: 500; }
+  h3.dl { margin: 0 0 4px; font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--fg); }
   ol.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; font-size: 14.5px; }
   .url { font: 12px/1.4 var(--mono); word-break: break-all; color: var(--muted); user-select: all; }
   a { color: var(--accent); }
@@ -254,8 +256,9 @@
 </header>
 <main id="main">
   <section class="panel" id="setup">
-    <h2>LFM3-Omni-2B, running on this device</h2>
-    <p class="muted">LiquidAI's LFM3-Omni-2B runs on this device's GPU with WebGPU. It reads text, photos and speech and can answer out loud; nothing you send leaves the device. It needs Safari 26 or later on iPhone, or a recent Chrome, Edge or Safari on a computer.</p>
+    <h2>LFM3-Omni-2B: In browser, offline first</h2>
+    <p class="muted">LiquidAI's LFM3-Omni-2B runs on this device via WebGPU. It can respond via prompt, speech, and even real-time video + image pipelines. No API is called, and nothing leaves your local device.</p>
+    <p class="muted"><strong>Note:</strong> Requires a GPU on the device, Safari 26 or another modern browser.</p>
     <ol class="steps" id="steps">
       <li><strong>Save the model file.</strong> Open this link, then save the file (4.3 GB) to Files:<br>
         <a id="hfLink" href="https://huggingface.co/LiquidAI/LFM3-Omni-2B/resolve/main/model.safetensors" target="_blank" rel="noopener">LiquidAI/LFM3-Omni-2B · model.safetensors</a>
@@ -266,7 +269,7 @@
           <span class="fname" id="fname">No file chosen</span>
         </div></li>
     </ol>
-    <p class="muted" id="assetNote" hidden></p>
+    <div id="assetWrap" hidden><h3 class="dl">Download</h3><p class="muted" id="assetNote"></p></div>
     <div class="row">
       <span class="row" id="quantWrap"><label class="lbl" for="quant">Precision</label>
       <select id="quant"><option value="q8" selected>8-bit · 1.9 GB · matches the original</option><option value="q4">4-bit · 1.3 GB · less memory, weaker answers</option></select></span>
@@ -281,7 +284,6 @@
     <progress id="prog" max="1" value="0" hidden></progress>
     <div class="status" id="loadMsg"></div>
     <button class="linkish" id="dropBtn" hidden>Remove the saved copy</button>
-    <p class="credit">Implementation by Mage / Toaster Club LLC. Model: LFM3-Omni-2B by Liquid AI, under the <a href="licenses/LFM-Open-License-v1.0.txt">LFM Open License v1.0</a>. Not affiliated with Liquid AI.</p>
   </section>
   <section class="col" id="hello" hidden>
     <h2>What can I help with?</h2>
@@ -356,6 +358,7 @@
   <p class="muted" id="smokeMsg" aria-live="polite"></p>
   <div id="smokeOut"></div>
   <h2 class="about">About</h2>
+  <p class="credit">Implementation by Mage / Toaster Club LLC. Model: LFM3-Omni-2B by Liquid AI, under the <a href="licenses/LFM-Open-License-v1.0.txt">LFM Open License v1.0</a>. Not affiliated with Liquid AI.</p>
   <p class="muted">LFM3 in the Browser is an implementation by Mage / Toaster Club LLC. It runs Liquid AI's LFM3-Omni-2B on this device's GPU with WebGPU, and it is a reference implementation for using the model directly inside websites and web apps: one folder of static files, loaded in one call.</p>
   <p class="muted">The model's weights on this site were quantized and repacked from Liquid AI's release; they and the tokenizer are used under the <a href="licenses/LFM-Open-License-v1.0.txt">LFM Open License v1.0</a>, which limits commercial use to organizations under US$10 million in annual revenue. The app's code is under the <a href="licenses/Apache-2.0.txt">Apache License 2.0</a>. See the <a href="licenses/NOTICE.txt">notices</a>. LFM and Liquid AI are names of Liquid AI, Inc., used here only to say where the model comes from; this project is not affiliated with or endorsed by Liquid AI.</p>
   <p class="muted">Source code: <a href="https://github.com/mage-uwu/LFM3-IN-BROWSER" target="_blank" rel="noopener">github.com/mage-uwu/LFM3-IN-BROWSER</a> · <a href="examples/chat.html">Minimal example</a></p>
