@@ -70,6 +70,15 @@ python3 tools/fake_media.py --wav work/live.wav --y4m work/house.y4m
 python3 tools/ui_test.py --page "/index.html?maxpx=65536" --assets --faces --talk --live --fake-audio work/live.wav --fake-video work/house.y4m --out out/ui
 ```
 
+## A deployed site
+
+`tools/site_test.py` checks a live deployment. It runs the minimal example, loads the app, checks the credits and
+licenses in Settings, sets custom instructions and asks a question, and checks that the license files are served:
+
+```bash
+python3 tools/site_test.py --base https://lfm3-in-browser.toasterclub.workers.dev --out out/site
+```
+
 ## What was found this way
 
 These tests caught real bugs before users did:

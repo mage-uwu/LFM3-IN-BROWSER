@@ -849,6 +849,8 @@ async function liveOpen() {
   caption("");
   syncLiveButtons();
   liveState("loading", "Starting…");
+  if (PT.state === "recording" || PT.state === "starting") { PT.cancel = true; talkEnd(); }   // a turn being spoken in the chat closes
+  await stopAnswer();   // an answer still being made stops, as a press to talk would stop it
   try { L.lock = await navigator.wakeLock?.request("screen"); } catch { /* the screen may sleep */ }
   try { // the microphone's permission now, so the first press starts at once (it is opened per turn)
     const probe = await navigator.mediaDevices.getUserMedia({ audio: true });
