@@ -30,7 +30,6 @@ const TLK = TALK ? weightSet(TALK, "s/") : null, CDC = CODEC ? weightSet(CODEC, 
 async function showSaved() {
   const s = await LM.saved();
   const n = WEIGHTS.chunks.length;
-  $("dropBtn").hidden = !s || !s.n;
   $("loadBtn").textContent = s?.complete ? "Load the model (saved on this device)"
     : s?.n ? `Continue loading the model (${Math.round((100 * s.n) / n)}% saved)` : "Load the model";
 }
@@ -101,7 +100,7 @@ $("file").onchange = () => {
 $("quant").onchange = async () => { $("cachedBtn").hidden = !!WEIGHTS || !(gpu && await LFM3.cached($("quant").value)); };
 
 async function load(source) {
-  for (const b of ["loadBtn", "cachedBtn", "hubBtn", "dropBtn"]) $(b).disabled = true;
+  for (const b of ["loadBtn", "cachedBtn", "hubBtn"]) $(b).disabled = true;
   $("prog").hidden = false;
   const t0 = performance.now();
   let src = null, saved = "";
@@ -149,20 +148,31 @@ async function load(source) {
     console.error(e);
     const oom = /memory|allocat|lost/i.test(String(e.message));
     status(`<span class="err">${e.message}${oom && !WEIGHTS && $("quant").value === "q8" ? ". Try 4-bit." : ""}</span>`);
-    $("cachedBtn").disabled = false; $("hubBtn").disabled = false; $("dropBtn").disabled = false;
+    $("cachedBtn").disabled = false; $("hubBtn").disabled = false;
     $("loadBtn").disabled = !file && !WEIGHTS;
     if (WEIGHTS) await showSaved();  // the parts kept so far stay: the next try resumes from them
   }
 }
 $("loadBtn").onclick = () => load(WEIGHTS ? {} : { file });
 let dropArmed = false;
+// Settings → Storage: what this device keeps of the model, and two taps to remove it (every weight set and the
+// tokenizer). The model already in the GPU keeps working until the page closes; the next visit downloads it again.
+const SAVED = /^(w|v|a|s|c|tok)\//;
+async function showStorage() {
+  if (!WEIGHTS) { $("dropInfo").textContent = "This page keeps no copy of the model."; $("dropBtn").hidden = true; return; }
+  let n = 0;
+  try { n = (await store.keys()).map(String).filter((k) => SAVED.test(k)).length; } catch { /* no storage */ }
+  $("dropBtn").hidden = !n;
+  $("dropInfo").textContent = n ? "A copy of the model's weights is kept in this browser's storage on this device (not in Files), so later visits skip the download."
+    : "No copy of the model is kept on this device. The next visit downloads it again.";
+}
 $("dropBtn").onclick = async () => {  // two taps: remove the weights kept on this device
   if (!dropArmed) { dropArmed = true; $("dropBtn").textContent = "Tap again to remove"; setTimeout(() => { dropArmed = false; $("dropBtn").textContent = "Remove the saved copy"; }, 4000); return; }
   dropArmed = false;
-  try { await store.delWhere((k) => k.startsWith("w/")); } catch { /* nothing kept */ }
+  try { await store.delWhere((k) => SAVED.test(String(k))); } catch { /* nothing kept */ }
   $("dropBtn").textContent = "Remove the saved copy";
-  status("The saved copy is removed from this device.");
-  await showSaved();
+  $("dropMsg").textContent = "Removed. The model keeps running until you close this page; the next visit downloads it again.";
+  await showStorage();
 };
 $("cachedBtn").onclick = () => load({ cacheOnly: true });
 $("hubBtn").onclick = () => load({});
@@ -999,6 +1009,8 @@ $("setBtn").onclick = () => {
   sysCount();
   $("sysMsg").textContent = "";
   if (!smokeRun) { smokeLast ||= storedSmoke(); renderSmoke(smokeLast); }
+  $("dropMsg").textContent = "";
+  showStorage();
   $("settings").classList.add("open");
 };
 $("setClose").onclick = () => $("settings").classList.remove("open");

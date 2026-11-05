@@ -55,7 +55,7 @@ Everything runs on your device: what you type, say and show never leaves it. The
 model's files and receives nothing back. The model's copy, your instructions and the last smoke test's results are
 kept in this browser's storage on this device. Conversations and documents are not stored: they last only while
 the chat is open. Clearing the site's data in your browser settings removes everything, and **Remove the saved
-copy** on the setup card deletes the model's copy.
+copy** in Settings → Storage deletes the model's copy.
 
 ## If something goes wrong
 

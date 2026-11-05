@@ -278,7 +278,6 @@
     </div>
     <progress id="prog" max="1" value="0" hidden></progress>
     <div class="status" id="loadMsg"></div>
-    <button class="linkish" id="dropBtn" hidden>Remove the saved copy</button>
   </section>
   <section class="col" id="hello" hidden>
     <h2>What can I help with?</h2>
@@ -329,6 +328,10 @@
     <button id="sysReset">Use the default</button>
   </div>
   <p class="muted" id="sysMsg"></p>
+  <h2 class="about">Storage</h2>
+  <p class="muted" id="dropInfo">The model's weights are kept in this browser's storage on this device, so later visits skip the download.</p>
+  <div class="row"><button id="dropBtn">Remove the saved copy</button></div>
+  <p class="muted" id="dropMsg" aria-live="polite"></p>
   <h2 class="about">Smoke test</h2>
   <p class="muted">Runs every workflow once on this device with the same inputs everywhere, checks each answer and measures it: text (time to the first token, prefill and decode tokens per second), a photo, a spoken reply, speech recognition, and a push-to-talk turn with a camera picture, as in Live. These are real numbers from your GPU, to compare and share. It plays two short spoken answers and starts a new chat when done. Nothing leaves the device unless you copy, share or save the results.</p>
   <div class="row">
