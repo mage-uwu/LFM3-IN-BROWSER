@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LFM3 On-Device</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  /* Layout: one-screen app (header · scrolling transcript · composer), every edge clear of the phone's safe areas. */
+  :root {
+    --bg: #f4f5f7; --panel: #ffffff; --fg: #17191d; --muted: #5d6470; --line: #dde0e6;
+    --accent: #1f5fbf; --accent-fg: #ffffff; --user: #e3ebf8; --warn: #a2470f; --ok: #1d7a43;
+    --sans: "IBM Plex Sans", -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --gutter-l: max(16px, env(safe-area-inset-left, 0px));
+    --gutter-r: max(16px, env(safe-area-inset-right, 0px));
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121417; --panel: #1b1e23; --fg: #e8eaee; --muted: #9aa1ad; --line: #2c3038;
+      --accent: #78a6ff; --accent-fg: #0d1830; --user: #1f2a3d; --warn: #f0a46c; --ok: #5ccf8a; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121417; --panel: #1b1e23; --fg: #e8eaee; --muted: #9aa1ad; --line: #2c3038;
+    --accent: #78a6ff; --accent-fg: #0d1830; --user: #1f2a3d; --warn: #f0a46c; --ok: #5ccf8a; color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--sans); display: flex; flex-direction: column; }
+  header { display: flex; align-items: center; gap: 10px; padding-block: 10px; padding-left: var(--gutter-l); padding-right: var(--gutter-r);
+           border-bottom: 1px solid var(--line); background: var(--panel); }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; flex: 1; white-space: nowrap; letter-spacing: -0.01em; }
+  .chip { font: 12px/1.4 var(--mono); color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px;
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 42vw; }
+  button, .filebtn { font: 500 15px/1.2 var(--sans); border: 1px solid var(--line); background: var(--panel); color: var(--fg);
+           border-radius: 10px; padding: 9px 14px; cursor: pointer; }
+  button.primary, .filebtn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  button:disabled { opacity: .45; cursor: default; }
+  button:focus-visible, .filebtn:focus-within, select:focus-visible, textarea:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  main { flex: 1; overflow-y: auto; padding-block: 16px; padding-left: var(--gutter-l); padding-right: var(--gutter-r); -webkit-overflow-scrolling: touch; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; max-width: 620px; margin: 0 auto 16px;
+          display: flex; flex-direction: column; gap: 12px; }
+  .card h2 { font-size: 17px; margin: 0; text-wrap: balance; }
+  .muted { color: var(--muted); font-size: 13.5px; margin: 0; }
+  ol.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; }
+  ol.steps li { padding-left: 2px; }
+  a { color: var(--accent); }
+  .url { font: 12.5px/1.4 var(--mono); word-break: break-all; color: var(--muted); user-select: all; }
+  [hidden] { display: none !important; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  label.lbl { font-size: 13px; color: var(--muted); }
+  select { font: 15px var(--sans); padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); max-width: 100%; }
+  .filebtn { position: relative; display: inline-flex; align-items: center; overflow: hidden; }
+  .filebtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; font-size: 0; }
+  .fname { font: 12.5px/1.4 var(--mono); color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
+  progress { width: 100%; height: 8px; accent-color: var(--accent); }
+  .status { font: 12.5px/1.4 var(--mono); color: var(--muted); min-height: 1.4em; }
+  .msgs { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
+  .msg { padding: 10px 14px; border-radius: 14px; white-space: pre-wrap; overflow-wrap: anywhere; max-width: 92%; min-width: 0; }
+  .msg.user { background: var(--user); align-self: flex-end; }
+  .msg.assistant { background: var(--panel); border: 1px solid var(--line); align-self: flex-start; }
+  .stats { font: 11.5px/1.4 var(--mono); color: var(--muted); margin-top: 6px; font-variant-numeric: tabular-nums; }
+  footer { border-top: 1px solid var(--line); background: var(--panel); padding-block: 10px; padding-left: var(--gutter-l); padding-right: var(--gutter-r); }
+  .composer { display: flex; gap: 8px; max-width: 720px; margin: 0 auto; }
+  .attach { display: flex; gap: 10px; align-items: center; max-width: 720px; margin: 0 auto 8px; font-size: 14px; }
+  .attach .thumb { border-radius: 6px; display: block; }
+  .msg .thumb { display: block; max-width: 100%; height: auto; border-radius: 8px; margin-bottom: 6px; }
+  .msg .voicetag { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  #micBtn.rec, #speakBtn.on { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  textarea { flex: 1; min-width: 0; font-family: var(--sans); font-size: 16px; line-height: 1.4; resize: none; border: 1px solid var(--line);
+             border-radius: 12px; padding: 9px 12px; background: var(--bg); color: var(--fg); max-height: 30vh; }
+  #memory { position: fixed; inset: 0; background: color-mix(in srgb, var(--fg) 35%, transparent); display: none; align-items: flex-end; justify-content: center; z-index: 20; }
+  #memory.open { display: flex; }
+  #memory .sheet { background: var(--panel); width: 100%; max-width: 640px; max-height: 80vh; overflow-y: auto; border-radius: 16px 16px 0 0;
+                   padding-block: 16px calc(16px + env(safe-area-inset-bottom, 0px)); padding-left: var(--gutter-l); padding-right: var(--gutter-r);
+                   display: flex; flex-direction: column; gap: 12px; }
+  .note { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding-block: 6px; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .note span { min-width: 0; overflow-wrap: anywhere; }
+  .note button { padding: 3px 9px; font-size: 12.5px; }
+  .err { color: var(--warn); }
+  .good { color: var(--ok); }
+  @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>LFM3 On-Device</h1>
+  <span class="chip" id="chip">checking WebGPU…</span>
+  <button id="speakBtn" disabled hidden aria-pressed="false" aria-label="Spoken replies">Speak</button>
+  <button id="memBtn" disabled>Memory</button>
+</header>
+<main id="main">
+  <section class="card" id="setup">
+    <h2>Run LiquidAI's LFM3-Omni-2B on this device's GPU</h2>
+    <p class="muted">The unmodified model runs here with WebGPU, and nothing you type leaves the device. It needs Safari 26 or later on iPhone, or a recent Chrome, Edge or Safari on a computer.</p>
+    <ol class="steps" id="steps">
+      <li><strong>Save the model file.</strong> Open this link, then save the file (4.3 GB) to Files:<br>
+        <a id="hfLink" href="https://huggingface.co/LiquidAI/LFM3-Omni-2B/resolve/main/model.safetensors" target="_blank" rel="noopener">LiquidAI/LFM3-Omni-2B · model.safetensors</a>
+        <div class="url">https://huggingface.co/LiquidAI/LFM3-Omni-2B/resolve/main/model.safetensors</div></li>
+      <li><strong>Choose it here.</strong> Only the text model's part is read (3.5 GB), converted on the GPU, and kept in this browser for next time.
+        <div class="row" style="margin-top:8px">
+          <label class="filebtn" for="file">Choose model.safetensors<input type="file" id="file"></label>
+          <span class="fname" id="fname">No file chosen</span>
+        </div></li>
+    </ol>
+    <p class="muted" id="assetNote" hidden></p>
+    <div class="row">
+      <span class="row" id="quantWrap"><label class="lbl" for="quant">Precision</label>
+      <select id="quant"><option value="q8" selected>8-bit · 1.9 GB · matches the original</option><option value="q4">4-bit · 1.3 GB · less memory, weaker answers</option></select></span>
+      <label class="lbl" for="ctx">Context</label>
+      <select id="ctx"><option>2048</option><option selected>4096</option><option>8192</option></select>
+    </div>
+    <div class="row">
+      <button class="primary" id="loadBtn" disabled>Load the model</button>
+      <button id="cachedBtn" hidden>Load the saved copy</button>
+      <button id="hubBtn" hidden>Download from Hugging Face instead</button>
+      <button id="dropBtn" hidden>Remove the saved copy</button>
+    </div>
+    <progress id="prog" max="1" value="0" hidden></progress>
+    <div class="status" id="loadMsg"></div>
+  </section>
+  <div class="msgs" id="msgs"></div>
+</main>
+<footer>
+  <div class="attach" id="attach" hidden><span id="attachThumb"></span><span class="muted">Photo attached</span><button id="attachDrop">Remove</button></div>
+  <div class="attach" id="voiceChip" hidden><span class="muted" id="voiceLen">Voice message</span><button id="voiceDrop">Remove</button></div>
+  <div class="attach" id="voiceFileRow" hidden><span class="muted" id="voiceErr"></span><button id="voiceFileBtn">Choose a recording</button>
+    <input type="file" id="voiceFile" accept="audio/*,video/*" hidden></div>
+  <div class="composer">
+    <button id="photoBtn" disabled hidden aria-label="Add a photo">Photo</button>
+    <button id="micBtn" disabled hidden aria-label="Record a voice message">Voice</button>
+    <input type="file" id="photo" accept="image/*" hidden>
+    <textarea id="input" rows="1" placeholder="Load the model to start" disabled></textarea>
+    <button class="primary" id="send" disabled>Send</button>
+  </div>
+</footer>
+<div id="memory"><div class="sheet">
+  <div class="row" style="justify-content:space-between"><h2 style="margin:0;font-size:17px">Memory</h2><button id="memClose">Close</button></div>
+  <p class="muted">What the assistant has learned about you across chats. It stays on this device and is loaded into the model's state when a chat starts, so nothing is looked up while you talk.</p>
+  <label class="row lbl" for="useMem"><input type="checkbox" id="useMem" checked> Use memory in new chats</label>
+  <div id="notes"></div>
+  <div class="row">
+    <button class="primary" id="learn">Learn from this chat</button>
+    <button id="newChat">New chat</button>
+    <button id="copyMem">Copy as JSON</button>
+    <button id="clearMem">Forget everything</button>
+  </div>
+  <p class="muted" id="memMsg"></p>
+</div></div>
+<script src="./weights.js"></script>
+<script type="module" src="./app.js"></script>
+</body>
+</html>

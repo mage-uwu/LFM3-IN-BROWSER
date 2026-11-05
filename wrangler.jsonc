@@ -1,0 +1,9 @@
+{
+  // A static-assets-only Worker: Cloudflare serves ./public (the page, its ES modules, the tokenizer and the weights).
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "lfm3-in-browser",
+  "compatibility_date": "2025-10-01",
+  "assets": {
+    "directory": "./public"
+  }
+}

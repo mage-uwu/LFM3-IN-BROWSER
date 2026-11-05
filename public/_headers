@@ -1,0 +1,6 @@
+# Cloudflare Workers static assets: response headers by path
+/weights/*
+  Cache-Control: public, max-age=31536000, immutable
+/*
+  Permissions-Policy: camera=(self), microphone=(self)
+  X-Content-Type-Options: nosniff

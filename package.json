@@ -1,0 +1,12 @@
+{
+  "name": "lfm3-in-browser",
+  "private": true,
+  "description": "LFM3-Omni-2B on the device's GPU with WebGPU: text, photos, speech in and spoken replies",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.40.0"
+  }
+}
