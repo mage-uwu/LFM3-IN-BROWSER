@@ -44,13 +44,14 @@ def matrix(w: torch.Tensor, quant: str):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="work/vision")
+    ap.add_argument("--repo", default="LiquidAI/LFM3-Omni-2B", help="the Hugging Face repository (LiquidAI/d1-Omni-2B: the decision model)")
     ap.add_argument("--quant", nargs="+", default=["q8", "q4g64"])
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
     from huggingface_hub import hf_hub_download
     from safetensors import safe_open
 
-    f = safe_open(hf_hub_download("LiquidAI/LFM3-Omni-2B", "model.safetensors"), "pt")
+    f = safe_open(hf_hub_download(args.repo, "model.safetensors"), "pt")
     g = lambda n: f.get_tensor(n)  # noqa: E731
     vec = lambda n: g(n).float().contiguous().numpy().astype(np.float32).tobytes()  # noqa: E731
     V, PJ = "model.vision_tower.", "model.multi_modal_projector."

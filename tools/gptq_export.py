@@ -168,6 +168,7 @@ def texts_web(skip=0):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="work/gptq")
+    ap.add_argument("--repo", default="LiquidAI/LFM3-Omni-2B", help="the Hugging Face repository (LiquidAI/d1-Omni-2B: the decision model)")
     ap.add_argument("--chat", type=int, default=96, help="calibration windows of chat text")
     ap.add_argument("--web", type=int, default=32, help="calibration windows of web text")
     ap.add_argument("--eval", type=int, default=24, help="held-out windows of each kind")
@@ -179,7 +180,7 @@ def main():
     from huggingface_hub import hf_hub_download
     from transformers import AutoModelForMultimodalLM, AutoProcessor
 
-    mid = "LiquidAI/LFM3-Omni-2B"
+    mid = args.repo
     model = AutoModelForMultimodalLM.from_pretrained(mid, dtype=torch.bfloat16, device_map="cuda",
                                                      trust_remote_code=True).eval()
     proc = AutoProcessor.from_pretrained(mid, trust_remote_code=True)
