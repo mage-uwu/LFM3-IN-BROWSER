@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "LFM3 in the Browser: LFM3-Omni-2B on WebGPU"
+type: software
+authors:
+  - alias: "Mage"
+    affiliation: "Toaster Club LLC"
+  - name: "Toaster Club LLC"
+repository-code: "https://github.com/mage-uwu/LFM3-IN-BROWSER"
+url: "https://lfm3-in-browser.toasterclub.workers.dev"
+license: Apache-2.0
+date-released: "2026-11-05"
+keywords: [webgpu, wgsl, on-device, lfm3, speech, multimodal]
+references:
+  - type: software
+    title: "LFM3-Omni-2B"
+    authors:
+      - name: "Liquid AI"
+    url: "https://huggingface.co/LiquidAI/LFM3-Omni-2B"
+    license-url: "https://huggingface.co/LiquidAI/LFM3-Omni-2B/blob/main/LICENSE"

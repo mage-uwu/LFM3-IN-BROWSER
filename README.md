@@ -1,85 +1,153 @@
-# LFM3 in the browser
+# LFM3 in the Browser
 
-LiquidAI's [LFM3-Omni-2B](https://huggingface.co/LiquidAI/LFM3-Omni-2B) running on the device's own GPU with
-WebGPU, iPhone included (Safari 26 or later). It reads text, photos and speech, and can answer out loud. Nothing
-you send leaves the device: the server only hands out static files.
+**Liquid AI's [LFM3-Omni-2B](https://huggingface.co/LiquidAI/LFM3-Omni-2B) running on your own GPU, in a web page.**
+It reads text, photos and speech, and answers in text or out loud. There is no server-side inference and no
+install: the page streams the weights into WebGPU, and nothing you type, say or show leaves the device. It works
+on an iPhone in Safari 26 or later.
 
-Live at <https://lfm3-in-browser.toasterclub.workers.dev>.
+**Try it:** <https://lfm3-in-browser.toasterclub.workers.dev>
 
-* **Talk:** hold the round mic button, speak, and let go. The answer is spoken and written as it is made. Or tap
-  once to start and tap again to send. Your speech goes into the model while you are still talking, so the answer
-  starts right after you let go. Press again during an answer to interrupt it.
-* **Voice mode** shows a soap bubble with a small face above the message box. It smiles when idle, swells with
-  your voice while you hold to talk, looks up while thinking, and moves its mouth with the answer's sound. You
-  can hold the bubble itself to talk.
-* **Live:** the camera button opens the camera full screen. Hold the orb to talk; the picture from when you start
+![LFM3 in the Browser](public/og.png)
+
+Implementation by **Mage / Toaster Club LLC**. The model is by **Liquid AI** and is used under its
+[LFM Open License v1.0](LICENSE-LFM.txt). This is an independent project, not affiliated with Liquid AI.
+
+## What it does
+
+- **Chat.** You type, and the reply streams back as it is written.
+- **Push to talk.** Hold the mic button and speak, then let go. Your speech goes into the model while you are still
+  talking, so the spoken answer starts right after you let go.
+- **Live.** The camera fills the screen, and you hold the bubble to talk. The picture from the moment you start
   talking goes in with your words.
-* **Chat:** type, or add a photo. Turn on **Speak** in the top bar to hear typed answers too.
-* **Memory:** when a chat ends, the assistant reads what you said for facts and standing instructions worth
-  keeping. What you said out loud is transcribed first by the model's own speech recognition. A chat that ends
-  when you close the tab is learned at your next visit. The memory stays on the device; see or edit it from the
-  lightbulb in the top bar.
-* **On iPhone:** in Safari, Share → **Add to Home Screen** turns the site into an app with its own icon. The
-  weights it has downloaded stay on the phone.
+- **Photos.** Ask about a picture you attach.
+- **Spoken replies.** Answers come back as speech and text together, in the model's own voice.
+- **Memory.** When a chat ends, the assistant reads what you said, spoken or typed, and keeps facts and standing
+  instructions on the device. The next chat starts already knowing them. Nothing is retrieved per message and the
+  weights never change.
+- **Your own instructions.** Settings takes an optional system prompt.
+- **Installable.** Add it to the iPhone home screen. The weights stay in the browser's storage after the first
+  load.
 
-This repository is a Cloudflare Workers project with static assets only. `public/` is the whole site:
+## How it works, in one paragraph
 
-| Path | What it is | Size |
-| --- | --- | --- |
-| `index.html`, `app.js`, `engine/*.js` | the chat app and its hand-written WGSL engine, served as ES modules | 0.2 MB |
-| `lfm3-tokenizer-*` | the tokenizer | 5.7 MB |
-| `weights.js` | the weight sets' tensor lists and part URLs | 35 KB |
-| `weights/gptq-…/` | the language model, GPTQ 4-bit (perplexity +0.9% over bf16) | 871 MB, 49 parts |
-| `weights/vision-…/` | the image encoder, 8-bit | 182 MB, 15 parts |
-| `weights/audio-…/` | the speech encoder, 4-bit | 59 MB, 5 parts |
-| `weights/talk-…/` | the spoken replies' depth decoder and code embeddings, 4-bit | 67 MB, 5 parts |
-| `weights/codec-…/` | the voice codec's decoder, 8-bit | 36 MB, 3 parts |
+Every layer of the model is hand-written as **WGSL compute shaders** with no ML framework and no WebGPU extensions,
+so the same code runs on Safari for iOS, Chrome, Edge and Safari on desktop, and Dawn in Node.js. The language model
+uses GPTQ 4-bit weights; the image encoder, speech encoder, speech decoder and voice codec use 4- or 8-bit
+weights. Decoding is GPU-driven: the sampler writes the next token on the GPU, so 8 to 16 tokens run per submit
+without a CPU round trip. The weights are served as lossless PNG byte containers in content-addressed folders, so
+any static host or CDN can carry them and they can be cached forever. See
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the details.
 
-The weights are PNG byte containers: grayscale images whose pixels are the raw bytes. The page inflates them with
-`DecompressionStream`, checks each part's length and streams it into GPU buffers. Every part is under 20 MB,
-below Workers' limit of 25 MiB per file. Each set's folder is named after a hash of its contents, so a path
-never changes and `_headers` lets browsers cache the parts for a year.
+## Deploy your own
 
-On a device, the first load downloads the language model, about 0.9 GB. The image, speech and voice models
-download the first time each is used. Each part is also stored in the browser's IndexedDB as it arrives, so
-later loads read the device's copy and an interrupted load resumes where it stopped.
+The site is just the static files in `public/`, about 1.3 GB including all five weight sets.
 
-## Deploy
+**Cloudflare Workers (static assets, free tier is enough).**
+1. Fork this repository.
+2. In Cloudflare, go to **Workers & Pages → Create → Import a repository**, pick your fork, and keep the defaults.
+   The deploy command is `npx wrangler deploy`.
 
-From the Cloudflare dashboard: **Workers & Pages → Create → Import a repository**, pick this repository, and
-keep the defaults: no build command, deploy command `npx wrangler deploy`. Every push to `main` then redeploys.
-
-Or from a computer with Node.js:
+Every push to `main` then redeploys. From a terminal instead:
 
 ```bash
-npm install
+npm ci
 ```
 
 ```bash
 npx wrangler deploy
 ```
 
-The site is then at `https://lfm3-in-browser.<your-subdomain>.workers.dev`. Requests for static assets are free
-and don't count against the Workers request limits. WebGPU, the camera and the microphone need a secure context;
-`workers.dev` and custom domains are HTTPS.
+**Any static host.** Upload `public/` as it is. Serve `.js` as JavaScript, and give `weights/*` a long cache
+lifetime, as `public/_headers` does on Cloudflare. WebGPU, the camera and the microphone need HTTPS or `localhost`.
 
-To try it locally, run `npx wrangler dev` and open `http://localhost:8787` in a desktop Chrome, Edge or Safari.
-`localhost` counts as secure.
+**Run it locally:**
 
-## Where it comes from
+```bash
+npx wrangler dev
+```
 
-The app, the engine and the exporters live in [mage-uwu/tinyopt](https://github.com/mage-uwu/tinyopt) under
-`web/` and `tools/`. `tools/build_site.py` writes this `public/` folder, and it checks each weight part's sha256
-before copying it. The engine was tested part by part against the PyTorch model on a GPU:
+Or, with Python only:
 
-- The 4-bit language model's perplexity is within 0.9% of bf16.
-- The image encoder matches 48 of 48 reference tokens.
-- Speech input transcribes exactly.
-- Spoken replies give the same text, and the 8-bit codec reaches 33.6 dB SNR against PyTorch.
+```bash
+python3 tools/serve.py --root public --port 8080
+```
+
+Then open <http://localhost:8787> (wrangler) or <http://localhost:8080> in Chrome, Edge or Safari.
+
+## Use the engine in your own page
+
+[`public/examples/chat.html`](public/examples/chat.html) is a complete working page in about forty lines of
+JavaScript. The core of it:
+
+```js
+import { initDevice, LFM3 } from "./engine/lfm3.js";
+import { Chat } from "./engine/chat.js";
+import { Tokenizer } from "./engine/tokenizer.js";
+import { pngPayload, prefetched } from "./engine/pngbytes.js";
+
+const W = window.LFM3_WEIGHTS;   // from weights.js: the tensor list and the part URLs
+const part = async (c) => pngPayload(new Uint8Array(await (await fetch(c.url)).arrayBuffer()), c.bytes);
+
+const { device } = await initDevice();
+const model = new LFM3(device, { ctx: 4096, prequant: { id: W.id, manifest: W.tensors, chunks: () => prefetched(W.chunks, part) } });
+await model.load((p) => console.log(`${p.got} / ${p.total} bytes`));
+const chat = new Chat(model, await Tokenizer.fromFiles("./"));
+await chat.newChat();
+const { reply } = await chat.send("Hello!", { onText: (t) => console.log(t) });
+```
+
+The engine is plain ES modules in `public/engine/` with no dependencies and no build step. Images, speech input,
+spoken replies, streamed push-to-talk turns and the memory are covered in [docs/API.md](docs/API.md).
+
+## Checked against the original model
+
+Each part was compared with LiquidAI/LFM3-Omni-2B in PyTorch on the same inputs. The engine ran on an NVIDIA A40
+through Dawn, Chrome's WebGPU implementation, in Node.js. The raw numbers are in [`results/`](results/), and
+[docs/TESTING.md](docs/TESTING.md) explains how to rerun them.
+
+| Part | Result |
+| --- | --- |
+| Language model, GPTQ 4-bit | Held-out perplexity 12.73, against 12.62 for the original bf16 (+0.85%). Plain 4-bit rounding gives 13.05. |
+| Language model speed (A40) | Prefill 306 tokens/s, decode 130 tokens/s; 0.93 GB of weights. |
+| Image encoder, 8-bit | Its description of a test picture matches PyTorch for all 48 of 48 tokens. 768 patches encode in 0.4 s. |
+| Speech encoder | The log-mel front end matches the reference to 0.00013, and a LibriSpeech clip transcribes word for word. 5.9 s of speech encodes in 30 ms. |
+| Spoken replies | The text matches a deterministic PyTorch run. The 8-bit codec reaches 33.6 dB SNR against PyTorch's audio. 46.5 speech frames per second is 3.7× real time, and the model transcribes our speech back exactly. |
+| Push to talk | A turn streamed in while "speaking" gives exactly the same answer as the whole clip: 24 of 24 text tokens and 89 of 89 speech frames, and the follow-up turn too. The first audio comes 164 ms after letting go, against 389 ms without streaming. |
+| Memory from speech | The model heard its own spoken "My sister's name is Rosa and I live in Lisbon." word for word and learned both facts. A new chat answered "Your sister's name is Rosa and you live in Lisbon." |
+
+On a phone, speed depends on its GPU, and the app shows the real numbers under every reply.
+
+## Repository layout
+
+```
+public/              the site: deploy this folder
+  index.html app.js    the app
+  engine/              the engine: WebGPU + WGSL, plain ES modules (docs/API.md)
+  examples/chat.html   a minimal page that uses the engine
+  weights.js           the weight sets' tensor lists and part URLs
+  weights/<set-id>/    the model's weights as PNG parts, with chunks.json (sha256 of every part)
+  lfm3-tokenizer-*     the tokenizer
+  licenses/            the licenses and notices the site serves
+tools/               export the weights, pack them, regenerate icons; references and tests (docs/WEIGHTS.md)
+results/             measured results (docs/TESTING.md)
+docs/                architecture, API, weights, testing
+```
+
+## Credits
+
+- **LFM3 in the Browser:** implementation by Mage / Toaster Club LLC. This covers the WebGPU engine and its WGSL
+  shaders, the app, the quantized weight sets and the tools.
+- **LFM3-Omni-2B:** Liquid AI, Inc. That includes the model, its weights, the tokenizer, the chat format and the
+  Liquid voice codec. See the [model card](https://huggingface.co/LiquidAI/LFM3-Omni-2B).
 
 ## License
 
-The model weights under `public/weights/` are derived from LiquidAI/LFM3-Omni-2B and are distributed under the
-LFM Open License v1.0 (`LICENSE-LFM.txt`). They were changed from the original: quantized (GPTQ 4-bit for the
-language model; 4-bit or 8-bit round-to-nearest with per-group scales for the other parts), regrouped into the
-engine's tensor layout, and repacked into PNG byte containers.
+- **Code** (everything except the files derived from the model): [Apache License 2.0](LICENSE). Copyright 2026 Toaster Club LLC.
+- **Model weights and tokenizer** (`public/weights/`, `public/lfm3-tokenizer-*`): derived from LFM3-Omni-2B and
+  licensed under the [LFM Open License v1.0](LICENSE-LFM.txt). We quantized, reordered and repacked the weights; see
+  [NOTICE](NOTICE). The license's Section 5 limits commercial use: it is licensed only for individuals and
+  organizations below US$10 million in annual revenue, except for qualified non-profits' non-commercial or research
+  use. If you redistribute the weights, include `LICENSE-LFM.txt` and `NOTICE`.
+- LFM, LFM3 and Liquid AI are names of Liquid AI, Inc., used here only to say where the model comes from.
+
+If you use this work, please cite it ([CITATION.cff](CITATION.cff)) and Liquid AI's model.

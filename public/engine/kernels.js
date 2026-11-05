@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0. Copyright 2026 Toaster Club LLC.
 // WGSL compute kernels for the LFM3 text backbone. No WebGPU extensions are required (f16 values are packed into
 // u32 with pack2x16float / unpack2x16float), so the same shaders run on iOS Safari, Android Chrome and desktops.
 //

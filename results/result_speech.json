@@ -1,0 +1,70 @@
+{
+ "ref_text": "The capital of France is Paris.",
+ "ref_frames": 32,
+ "ref_transcript": "The capital of France is Paris.",
+ "adapter": {
+  "vendor": "nvidia",
+  "architecture": "ampere",
+  "description": "NVIDIA: 595.91.07 595.91.7.0",
+  "maxStorageBufferBindingSize": 1073741824,
+  "maxBufferSize": 1073741824
+ },
+ "transcript_of_reference_audio": "The capital of France is Paris.",
+ "quants": {
+  "q8": {
+   "depth_logits_rel_err": 0.0154,
+   "depth_frame0_codes_match": 11,
+   "codec_ms_per_second": 21.9,
+   "codec_samples": [
+    61440,
+    61440
+   ],
+   "codec_snr_db": 33.64,
+   "prompt_ids_match": true,
+   "text": "The capital of France is Paris.",
+   "text_ids_leading_match": 9,
+   "text_ids": [
+    9,
+    9
+   ],
+   "frames_leading_match": 0,
+   "frames": [
+    32,
+    32
+   ],
+   "seconds": 2.56,
+   "loop_ms": 688,
+   "frames_per_s": 46.5,
+   "realtime_factor": 3.72,
+   "transcript_of_our_speech": "The capital of France is Paris."
+  },
+  "q4g64": {
+   "depth_logits_rel_err": 0.1745,
+   "depth_frame0_codes_match": 11,
+   "codec_ms_per_second": 18,
+   "codec_samples": [
+    61440,
+    61440
+   ],
+   "codec_snr_db": 13.21,
+   "prompt_ids_match": true,
+   "text": "The capital of France is Paris.",
+   "text_ids_leading_match": 9,
+   "text_ids": [
+    9,
+    9
+   ],
+   "frames_leading_match": 0,
+   "frames": [
+    31,
+    32
+   ],
+   "seconds": 2.48,
+   "loop_ms": 654,
+   "frames_per_s": 47.4,
+   "realtime_factor": 3.79,
+   "transcript_of_our_speech": "The capital of France is Paris."
+  }
+ },
+ "gpu_errors": 0
+}

@@ -1,0 +1,62 @@
+{
+ "adapter": {
+  "vendor": "nvidia",
+  "architecture": "ampere",
+  "description": "NVIDIA: 595.91.07 595.91.7.0",
+  "maxStorageBufferBindingSize": 1073741824,
+  "maxBufferSize": 1073741824
+ },
+ "frontend": {
+  "seconds": 5.86,
+  "samples16k": [
+   93680,
+   93680
+  ],
+  "max_sample_diff": 0,
+  "mel_frames": [
+   584,
+   584
+  ],
+  "max_mel_diff": 0
+ },
+ "whole": {
+  "rows": 73,
+  "text": "Mr. Quilter is the apostle of the middle classes, and we are glad to welcome his gospel.",
+  "frames": 89,
+  "first_audio_ms": 389,
+  "followup": "Mr. Quilter, welcome."
+ },
+ "streamed": {
+  "rows": 73,
+  "streamed_before_release": 72,
+  "ticks": 17,
+  "text": "Mr. Quilter is the apostle of the middle classes, and we are glad to welcome his gospel.",
+  "frames": 89,
+  "first_audio_ms_after_release": 164,
+  "followup": "Mr. Quilter, welcome."
+ },
+ "same": {
+  "text_ids": [
+   24,
+   24,
+   24
+  ],
+  "frames": [
+   89,
+   89,
+   89
+  ],
+  "followup_text_ids": [
+   9,
+   9,
+   9
+  ],
+  "followup_frames": [
+   44,
+   44,
+   44
+  ]
+ },
+ "identical": true,
+ "gpu_errors": 0
+}

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0. Copyright 2026 Toaster Club LLC.
 // Microphone input for push to talk: the samples as they arrive (MicCapture), and a resampler to the speech
 // encoder's 16 kHz that can run while they arrive and gives the same samples as resampling the whole clip at once
 // (Resampler: a windowed-sinc filter; an output sample is written once all the input it reads is in).

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0. Copyright 2026 Toaster Club LLC.
 // LFM3-Omni-2B text backbone on WebGPU: loads the vanilla weights straight from Hugging Face, quantizes them on
 // the GPU, and runs prefill (chunks of up to MMAX tokens) and GPU-driven decoding.
 import * as K from "./kernels.js";

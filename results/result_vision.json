@@ -1,0 +1,101 @@
+{
+ "T": 768,
+ "grid": [
+  24,
+  32
+ ],
+ "ref_text": "A simple flat-design illustration shows a red house with a brown roof and a small brown door, set on a green ground beneath a blue sky with a yellow sun in the upper right, and the word \"HOME\" written in white text on",
+ "adapter": {
+  "vendor": "nvidia",
+  "architecture": "ampere",
+  "description": "NVIDIA: 595.91.07 595.91.7.0",
+  "maxStorageBufferBindingSize": 1073741824,
+  "maxBufferSize": 1073741824
+ },
+ "preprocess": {
+  "grid": [
+   24,
+   32
+  ],
+  "same_grid": true,
+  "max_abs_8bit_steps": 12,
+  "mean_abs_8bit_steps": 0.0055
+ },
+ "prompt_ids_match": true,
+ "lm_load_s": 6.6,
+ "vision": {
+  "q8": {
+   "layer_rel_err": [
+    0.0122,
+    0.0153,
+    0.0146,
+    0.0152,
+    0.0154,
+    0.0165,
+    0.0165,
+    0.019,
+    0.0191,
+    0.0204,
+    0.0213,
+    0.0271,
+    0.0309,
+    0.0398
+   ],
+   "emb_rel_err": 0.0573,
+   "encode_ms": 399,
+   "processor_pixels": {
+    "top1_match": true,
+    "top10_overlap": 9,
+    "greedy_leading_match": 48,
+    "greedy_ref": 48,
+    "prefill_ms": 736,
+    "text": "A simple flat-design illustration shows a red house with a brown roof and a small brown door, set on a green ground beneath a blue sky with a yellow sun in the upper right, and the word \"HOME\" written in white text on"
+   },
+   "page_pixels": {
+    "top1_match": true,
+    "top10_overlap": 9,
+    "greedy_leading_match": 48,
+    "greedy_ref": 48,
+    "prefill_ms": 736,
+    "text": "A simple flat-design illustration shows a red house with a brown roof and a small brown door, set on a green ground beneath a blue sky with a yellow sun in the upper right, and the word \"HOME\" written in white text on"
+   }
+  },
+  "q4g64": {
+   "layer_rel_err": [
+    0.2321,
+    0.2762,
+    0.2946,
+    0.2677,
+    0.2445,
+    0.2508,
+    0.2414,
+    0.261,
+    0.2462,
+    0.2483,
+    0.2474,
+    0.2986,
+    0.3191,
+    0.3778
+   ],
+   "emb_rel_err": 0.3931,
+   "encode_ms": 335.8,
+   "processor_pixels": {
+    "top1_match": true,
+    "top10_overlap": 9,
+    "greedy_leading_match": 4,
+    "greedy_ref": 48,
+    "prefill_ms": 734,
+    "text": "A simple flat-design image shows a red house with a brown roof and a brown door, set on a green ground beneath a blue sky with a yellow sun in the upper right, and the word \"HOME\" written in white text on the"
+   },
+   "page_pixels": {
+    "top1_match": true,
+    "top10_overlap": 9,
+    "greedy_leading_match": 4,
+    "greedy_ref": 48,
+    "prefill_ms": 734,
+    "text": "A simple flat-design image shows a red house with a brown roof and a brown door, set on a green ground beneath a blue sky with a yellow sun in the upper right, and the word \"HOME\" written in white text on the"
+   }
+  }
+ },
+ "gpu_errors": 0
+}

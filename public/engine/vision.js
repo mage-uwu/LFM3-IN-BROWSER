@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0. Copyright 2026 Toaster Club LLC.
 // LFM3-Omni's vision tower (LFM3-VL) and its projector on WebGPU. An image is resized to multiples of 32 pixels,
 // cut into 16x16 patches (each repeated over 2 time steps: 1536 values) in 2x2 merge-block order, and encoded by 14
 // layers over the patch grid: gated depthwise 3x3 convolution, or bidirectional grouped-query attention with an

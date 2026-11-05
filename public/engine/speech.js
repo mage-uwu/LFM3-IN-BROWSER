@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0. Copyright 2026 Toaster Club LLC.
 // LFM3-Omni's speech output on WebGPU.
 //  * DepthDecoder: from the language model's hidden state, the 12 codebook codes of one 80 ms speech frame, revealed
 //    MaskGIT-style over 3 passes of 4 codebooks (a bidirectional 3-layer LFM3 over 12 slots), sampled on the CPU

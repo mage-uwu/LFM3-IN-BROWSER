@@ -1,5 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0. Copyright 2026 Toaster Club LLC.
 import { initDevice, LFM3 } from "./engine/lfm3.js";
-import { Chat, Experience, loadTokenizer } from "./engine/chat.js";
+import { Chat, Experience, loadTokenizer, SYSTEM } from "./engine/chat.js";
 import { pngPayload, prefetched } from "./engine/pngbytes.js";
 import { persist, room, store } from "./engine/store.js";
 import { Tokenizer } from "./engine/tokenizer.js";
@@ -197,9 +198,10 @@ async function load(source) {
     }, { cache: !WEIGHTS, cacheOnly: !!source.cacheOnly });
     if (src) saved = await LM.finish(src);
     chat = new Chat(model, await tokP);
+    applySystem();   // the user's own instructions, if they set some
     const info = await chat.newChat();
     $("setup").hidden = true;
-    $("input").disabled = false; $("send").disabled = false; $("memBtn").disabled = false; $("newChatTop").disabled = false;
+    $("input").disabled = false; $("send").disabled = false; $("memBtn").disabled = false; $("newChatTop").disabled = false; $("setBtn").disabled = false;
     $("photoBtn").disabled = !VISION;
     $("talkBtn").disabled = !LIVE;
     $("speakBtn").disabled = !(TALK && CODEC);
@@ -1107,6 +1109,31 @@ $("learn").onclick = async () => {
 };
 $("newChat").onclick = () => freshChat();
 $("newChatTop").onclick = () => freshChat();
+// ---- settings: the assistant's instructions (its base system prompt), kept on this device. They take effect
+// from the next chat, so saving starts one (after learning from the current one).
+const SYS_KEY = "lfm3.system", SYS_MAX = 2000;
+function savedSystem() { try { return (localStorage.getItem(SYS_KEY) || "").slice(0, SYS_MAX); } catch { return ""; } }
+function applySystem() { chat.system = savedSystem().trim() || SYSTEM; }
+const sysCount = () => { $("sysCount").textContent = `${$("sysPrompt").value.length} / ${SYS_MAX}`; };
+$("setBtn").onclick = () => {
+  $("sysPrompt").value = savedSystem();
+  sysCount();
+  $("sysMsg").textContent = "";
+  $("settings").classList.add("open");
+};
+$("setClose").onclick = () => $("settings").classList.remove("open");
+$("sysPrompt").addEventListener("input", sysCount);
+$("sysReset").onclick = () => { $("sysPrompt").value = ""; sysCount(); $("sysPrompt").focus(); };
+$("sysSave").onclick = async () => {
+  if (busy || PT.state !== "idle") { $("sysMsg").textContent = "Wait for the answer to finish, then save."; return; }
+  const v = $("sysPrompt").value.trim().slice(0, SYS_MAX);
+  try { if (v && v !== SYSTEM) localStorage.setItem(SYS_KEY, v); else localStorage.removeItem(SYS_KEY); }
+  catch { $("sysMsg").textContent = "This browser could not keep them, so they last until the page is closed."; }
+  chat.system = v || SYSTEM;
+  $("settings").classList.remove("open");
+  await freshChat();
+  note(v && v !== SYSTEM ? "New chat with your instructions." : "New chat with the default instructions.");
+};
 $("copyMem").onclick = async () => {
   const text = JSON.stringify(chat.experience, null, 1);
   try { await navigator.clipboard.writeText(text); $("memMsg").textContent = "Copied."; }

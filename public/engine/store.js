@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0. Copyright 2026 Toaster Club LLC.
 // A small IndexedDB key-value store: the page keeps the model's weights (as the decoded parts it streamed) and the
 // tokenizer on the device, so later visits load without downloading, and an interrupted first load resumes where it
 // stopped. Every call can fail (private browsing, storage blocked or full): callers catch and carry on without it.

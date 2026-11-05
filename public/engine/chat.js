@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0. Copyright 2026 Toaster Club LLC.
 // Chat on top of the WebGPU engine: LFM3's chat template, the official tokenizer (engine/tokenizer.js, from the
 // repository's tokenizer.json shipped beside the page), and System 3: a curated memory of the user, prefilled once
 // into the model's state so every new chat starts already knowing them (no retrieval, no retraining). Mirrors
@@ -144,6 +145,7 @@ export class Chat {
     this.messages = [];
     this.pendingEnd = false;  // the last reply's <|im_end|> is not in the cache yet
     this.prefix = null;       // snapshot after the system prompt (+ memory)
+    this.system = SYSTEM;     // the base system prompt: the user's own instructions, when they set some
   }
   ids(text) { return Array.from(this.tok.encode(text, { add_special_tokens: false })); }
   decode(ids) { return this.tok.decode(ids.filter((i) => !CFG.stopIds.includes(i)), { skip_special_tokens: true }); }
@@ -152,8 +154,9 @@ export class Chat {
   async newChat() {
     const m = this.model;
     m.reset();
-    let sys = this.useMemory ? this.experience.systemPrompt(SYSTEM) : SYSTEM;
-    if (this.spoken) sys = sys === SYSTEM ? SPEECH_SYSTEM : `${sys}\n\n${SPEECH_INSTRUCTION}`;
+    const base = (this.system || SYSTEM).trim();
+    let sys = this.useMemory ? this.experience.systemPrompt(base) : base;
+    if (this.spoken) sys = sys === base ? `${base} ${SPEECH_INSTRUCTION}` : `${sys}\n\n${SPEECH_INSTRUCTION}`;
     const ids = this.ids(systemBlock(sys));
     const t0 = performance.now();
     await m.prefill(ids, { sample: false });

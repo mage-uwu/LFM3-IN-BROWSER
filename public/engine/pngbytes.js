@@ -1,6 +1,8 @@
-// Byte containers: a claude.ai artifact's asset store takes images, not binary files, so the model's weights travel
-// as lossless 8-bit grayscale PNGs (tools/png_chunks.py). Decoding is the image data inflated with the browser's own
-// DecompressionStream, minus the one filter byte (always 0) at the start of every row.
+// SPDX-License-Identifier: Apache-2.0. Copyright 2026 Toaster Club LLC.
+// Byte containers: the model's weights travel as lossless 8-bit grayscale PNGs (tools/png_chunks.py), which any
+// static host or CDN serves (some, like a claude.ai artifact's asset store, take images but not binary files).
+// Decoding is the image data inflated with the browser's own DecompressionStream, minus the one filter byte (always
+// 0) at the start of every row.
 const SIG = [137, 80, 78, 71, 13, 10, 26, 10];
 
 export async function pngPayload(input, nbytes) {

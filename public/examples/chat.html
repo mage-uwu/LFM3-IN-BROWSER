@@ -1,0 +1,74 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0. Copyright 2026 Toaster Club LLC. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LFM3 in the Browser: minimal example</title>
+<style>
+  body { margin: 0 auto; max-width: 40rem; padding: 32px 16px; font: 16px/1.55 system-ui, -apple-system, sans-serif; color: #111214; background: #ffffff; }
+  h1 { font-size: 22px; margin: 0 0 6px; }
+  .muted { color: #74777f; font-size: 14px; }
+  textarea { width: 100%; box-sizing: border-box; font: inherit; padding: 8px 10px; border: 1px solid #e3e3e6; border-radius: 10px; }
+  button { font: inherit; padding: 8px 16px; border-radius: 999px; border: 0; background: #111214; color: #ffffff; cursor: pointer; }
+  button:disabled { opacity: 0.35; cursor: default; }
+  #out { white-space: pre-wrap; min-height: 3em; }
+</style>
+</head>
+<body>
+<h1>Minimal example</h1>
+<p class="muted">The smallest page that runs the engine: it streams the language model from this site's weights into the
+GPU, then chats. About forty lines of JavaScript; read this page's source. The full app is <a href="../">here</a>.</p>
+<p><button id="load">Load the model (0.9 GB)</button> <span id="status" class="muted"></span></p>
+<p><textarea id="q" rows="2" disabled>What is WebGPU? Answer in one sentence.</textarea></p>
+<p><button id="ask" disabled>Ask</button></p>
+<p id="out"></p>
+
+<!-- the weight sets' tensor lists and part URLs (written by tools/pack_weights.py) -->
+<script src="../weights.js"></script>
+<script type="module">
+import { initDevice, LFM3 } from "../engine/lfm3.js";
+import { Chat } from "../engine/chat.js";
+import { Tokenizer } from "../engine/tokenizer.js";
+import { pngPayload, prefetched } from "../engine/pngbytes.js";
+
+const $ = (id) => document.getElementById(id);
+const site = new URL("../", location.href);   // weights.js and the tokenizer files sit at the site's root
+const W = window.LFM3_WEIGHTS;                 // the language model: { id, tensors, chunks: [{ url, bytes }] }
+let chat = null;
+
+// one weight part: a PNG container whose pixels are the bytes; pngPayload inflates it and checks its length
+async function part(c) {
+  const r = await fetch(new URL(c.url, site));
+  if (!r.ok) throw new Error(`${c.url}: HTTP ${r.status}`);
+  return pngPayload(new Uint8Array(await r.arrayBuffer()), c.bytes);
+}
+
+$("load").onclick = async () => {
+  $("load").disabled = true;
+  try {
+    const { device } = await initDevice();   // WebGPU: Safari 26+ on iPhone, recent Chrome, Edge or Safari
+    const model = new LFM3(device, {
+      ctx: 4096,                             // context length (tokens)
+      prequant: { id: W.id, manifest: W.tensors, chunks: () => prefetched(W.chunks, part) },   // two parts in flight
+    });
+    await model.load((p) => { $("status").textContent = `${(p.got / 1e9).toFixed(2)} of ${(p.total / 1e9).toFixed(2)} GB`; });
+    chat = new Chat(model, await Tokenizer.fromFiles(site.href));
+    await chat.newChat();                     // prefills the system prompt once
+    $("status").textContent = "Ready.";
+    $("q").disabled = $("ask").disabled = false;
+  } catch (e) {
+    $("status").textContent = e.message;
+    $("load").disabled = false;
+  }
+};
+
+$("ask").onclick = async () => {
+  $("ask").disabled = true;
+  const { reply, stats } = await chat.send($("q").value, { onText: (t) => { $("out").textContent = t; } });
+  $("out").textContent = `${reply}\n\n${stats.newTokens} tokens at ${stats.decodeTokS.toFixed(1)} tokens/s`;
+  $("ask").disabled = false;
+};
+</script>
+</body>
+</html>

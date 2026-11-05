@@ -1,0 +1,27 @@
+LFM3 in the Browser
+Copyright 2026 Toaster Club LLC
+
+This product includes software developed by Toaster Club LLC (implementation by Mage): the WebGPU engine and its
+WGSL shaders (public/engine/), the app (public/index.html, public/app.js, public/examples/), and the tools
+(tools/). This software is licensed under the Apache License, Version 2.0 (LICENSE).
+
+This product includes LFM3-Omni-2B by Liquid AI, Inc. (https://huggingface.co/LiquidAI/LFM3-Omni-2B), licensed
+under the LFM Open License v1.0 (LICENSE-LFM.txt). The files derived from it are:
+
+  public/weights/
+      The model's weights, modified by Toaster Club LLC: quantized (GPTQ 4-bit in groups of 64 for the language
+      model; 4-bit or 8-bit round-to-nearest with per-group scales for the image encoder, the speech encoder, the
+      speech decoder and the voice codec), reordered into this engine's tensor layout, and packed into PNG byte
+      containers. Each weight set's chunks.json lists the sha256 of every part.
+
+  public/lfm3-tokenizer-vocab.json, public/lfm3-tokenizer-merges.txt
+      Liquid AI's tokenizer.json, split into two files by tools/export_tokenizer.py. Changed in format only.
+
+The LFM Open License v1.0 applies to these files and to any use of them, including its Commercial Use limitation
+(Section 5): rights for commercial use are granted only to individuals and organizations below US$10,000,000 in
+annual revenue; the threshold does not apply to qualified non-profit organizations' non-commercial or research use.
+
+LFM, LFM3 and Liquid AI are names of Liquid AI, Inc. They are used here only to describe the origin of the model.
+This project is not affiliated with, sponsored by or endorsed by Liquid AI, Inc.
+
+The app loads the Geist and Geist Mono typefaces from Google Fonts (SIL Open Font License 1.1).

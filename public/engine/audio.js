@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0. Copyright 2026 Toaster Club LLC.
 // LFM3-Omni's speech encoder on WebGPU: 16 kHz audio -> 128-bin log-mel (JS, as the feature extractor) -> three
 // stride-2 convolutions over the (mel, time) plane (8 frames become one 768-wide vector) -> an LFM2 stack of 17
 // layers (gated short convolutions of width 3, and causal attention over a 32-token window) -> a projector to

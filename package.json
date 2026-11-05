@@ -1,10 +1,20 @@
 {
   "name": "lfm3-in-browser",
+  "version": "1.0.0",
   "private": true,
-  "description": "LFM3-Omni-2B on the device's GPU with WebGPU: text, photos, speech in and spoken replies",
+  "description": "LFM3-Omni-2B on your own GPU with WebGPU: text, photos, speech in and spoken replies",
+  "license": "Apache-2.0",
+  "author": "Mage / Toaster Club LLC",
+  "homepage": "https://lfm3-in-browser.toasterclub.workers.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mage-uwu/LFM3-IN-BROWSER"
+  },
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "serve": "python3 tools/serve.py --root public --port 8080",
+    "verify:weights": "python3 tools/pack_weights.py --verify"
   },
   "devDependencies": {
     "wrangler": "^4.157.0"

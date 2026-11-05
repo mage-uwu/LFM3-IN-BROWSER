@@ -1,0 +1,9 @@
+These files are derived from LFM3-Omni-2B by Liquid AI, Inc. (https://huggingface.co/LiquidAI/LFM3-Omni-2B) and
+are licensed under the LFM Open License v1.0 (../licenses/LFM-Open-License-v1.0.txt).
+
+They were changed from the original by Toaster Club LLC: quantized (GPTQ 4-bit for the language model; 4-bit or
+8-bit round-to-nearest with per-group scales for the other parts), reordered into the engine's tensor layout, and
+packed into PNG byte containers. Each folder's chunks.json gives the sha256 of every part's payload.
+
+Commercial use is licensed only below US$10,000,000 in annual revenue (Section 5 of the license).
+Not affiliated with or endorsed by Liquid AI, Inc.

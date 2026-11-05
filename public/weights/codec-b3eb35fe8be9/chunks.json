@@ -1,0 +1,25 @@
+{
+ "width": 4096,
+ "total_bytes": 41435272,
+ "stored_bytes": 36980648,
+ "chunks": [
+  {
+   "file": "w000.png",
+   "bytes": 15204352,
+   "png_bytes": 13471945,
+   "sha256": "8ad0e67e57a5fa3ecaeeeda56f76d44e775be9359b3db1a9147dab4efa0cf212"
+  },
+  {
+   "file": "w001.png",
+   "bytes": 15204352,
+   "png_bytes": 13663116,
+   "sha256": "44e3411c0eb1e61e38d242cafa36098f6475412ba57e6c1e52f5ef6f624c6051"
+  },
+  {
+   "file": "w002.png",
+   "bytes": 11026568,
+   "png_bytes": 9845587,
+   "sha256": "67c9f805b0f8535f469176cc564ae96cba9f8b3cbd19a1c5b49ffd1698bb4120"
+  }
+ ]
+}

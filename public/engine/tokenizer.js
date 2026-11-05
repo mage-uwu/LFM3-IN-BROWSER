@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0. Copyright 2026 Toaster Club LLC.
 // LFM3's tokenizer in plain JavaScript, built from the official tokenizer.json: added tokens split first, then the
 // GPT-style pre-split regex, byte-level mapping, and BPE with ignore_merges (a piece that is already in the vocabulary
 // is one token). No dependencies, no network: the app ships tokenizer.json, split in two files, beside the page.
