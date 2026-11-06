@@ -77,17 +77,19 @@ const QUESTIONS = {
   mood: { type: "score", instructions: "How upset is the speaker?", criteria: ["Calm", "Annoyed", "Upset"] },
   escalate: { type: "noul", instructions: "Should this go to a human agent?" },
 };
+const SYSTEM = "You are the voice of a shop's customer line. Keep answers to two or three short spoken sentences. Act on the notes: if escalate is yes, tell the caller you are passing them to a human agent now; if urgent is yes, say you are treating it as a priority; if the mood is Upset, apologize first.";
 const MESSAGES = [
   "I was charged twice for my order and the parcel never arrived. Refund one of the charges, this is urgent!",
   "Hi there, I was just wondering what time your shop opens on Sundays.",
 ];
 res.cases = [];
+const clips = [];
 for (const line of MESSAGES) {
   const clip = await say(line);
   const row = { line, heard: clip.heard, seconds: +(clip.samples.length / 16000).toFixed(2) };
   console.log("SAID", JSON.stringify(row));
   for (const withNote of [true, false]) {
-    await pair.newChat("You are the voice of a shop's customer line. Keep answers to two or three short spoken sentences. Act on the notes: if escalate is yes, tell the caller you are passing them to a human agent now; if urgent is yes, say you are treating it as a priority; if the mood is Upset, apologize first.");
+    await pair.newChat(SYSTEM);
     const t = performance.now();
     const r = await pair.turn(clip.samples, QUESTIONS, { greedy: true, withNote, maxFrames: 400 });
     const key = withNote ? "with_note" : "without_note";
@@ -100,6 +102,16 @@ for (const line of MESSAGES) {
     console.log("TURN", key, JSON.stringify(row[key]));
   }
   res.cases.push(row);
+  clips.push(clip);
+}
+// the note against the clip: the calm question with a note that says the opposite. A reply that follows the note
+// (passing a calm caller to a person) shows the voice acts on d1's decision, not only on what it heard itself.
+{
+  const note = "[Notes from the decision model on this message: intent: complaint (90%); urgent: yes (95%); mood: Upset (level 2 of 2); escalate: yes (93%).]";
+  await pair.newChat(SYSTEM);
+  const r = await pair.turn(clips[1].samples, QUESTIONS, { greedy: true, maxFrames: 400, note });
+  res.counterfactual = { line: MESSAGES[1], note, reply: r.reply };
+  console.log("COUNTER", JSON.stringify(res.counterfactual));
 }
 res.gpu_errors = gpuErrors;
 writeFileSync(`${out}/result_pair.json`, JSON.stringify(res, null, 1));

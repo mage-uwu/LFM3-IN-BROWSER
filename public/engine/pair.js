@@ -45,13 +45,14 @@ export class Pair {
 
   // one spoken turn: samples are 16 kHz mono (up to 30 s). questions: as Decider.ask takes them. withNote: false
   // answers without d1's decision (a comparison). state: anything d1 should read beside the clip (text or JSON).
-  async turn(samples, questions, { onDecision, onText, onAudio, shouldStop, maxFrames = 750, withNote = true, state = null, greedy = false } = {}) {
+  // note: a note to give instead of d1's (to check that the reply follows the note rather than the clip).
+  async turn(samples, questions, { onDecision, onText, onAudio, shouldStop, maxFrames = 750, withNote = true, state = null, greedy = false, note: given = null } = {}) {
     const t0 = performance.now();
     const lm = logMel(samples);
     const a1 = await this.d1Audio.encode(lm.mel, lm.frames);
     const decision = await this.decider.ask(state, questions, { media: { items: [{ token: "<|audio|>", rows: a1.rows }], emb: a1.emb } });
     const t1 = performance.now();
-    const note = decisionNote(questions, decision.answers);
+    const note = given ?? decisionNote(questions, decision.answers);   // given: a note of the caller's own (tests)
     onDecision?.(decision, note);
     const a2 = await this.audio.encode(lm.mel, lm.frames);
     this.chat.model.setExternalEmbeddings(a2.emb);
