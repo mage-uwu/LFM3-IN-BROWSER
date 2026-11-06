@@ -5,6 +5,7 @@
 //              mostly ignore the notes (it only knows they exist)
 //   questions  named questions for d1 (engine/d1.js): noul (yes or no), choice (criteria: { name: description }, add
 //              multiple: true for any of), score (criteria: levels, lowest first). At most 16 share one pass.
+//              needs: "image" asks a question only on turns with a picture.
 //   sample     a line to try it with
 // Keep names short and readable (the voice sees "urgency: Emergency (level 3 of 3)"), and descriptions concrete.
 export const PROFILES = {
@@ -26,7 +27,7 @@ export const PROFILES = {
       urgency: { type: "score", instructions: "How soon does this need someone?", criteria: ["Routine", "This week", "Today", "Emergency"] },
       hazard: { type: "noul", instructions: "Is there a safety hazard, such as a gas smell, sparks or burning, flooding, or no heat in freezing weather?" },
       needs_visit: { type: "noul", instructions: "Does this need a technician on site?" },
-      damage_shown: { type: "noul", instructions: "Does a photo show visible damage?" },
+      damage_shown: { type: "noul", instructions: "Does the photo show visible damage?", needs: "image" },
       mood: { type: "score", instructions: "How is the customer feeling?", criteria: ["Calm", "Frustrated", "Upset"] },
     },
     sample: "Hi, water is pouring out from under my kitchen sink and it's spreading across the floor. Can someone come today?",
@@ -38,7 +39,7 @@ export const PROFILES = {
       urgent: { type: "noul", instructions: "Does the customer say it is urgent?" },
       mood: { type: "score", instructions: "How upset is the customer?", criteria: ["Calm", "Annoyed", "Upset"] },
       escalate: { type: "noul", instructions: "Should this go to a human agent?" },
-      damaged: { type: "noul", instructions: "Does a photo show a damaged item?" },
+      damaged: { type: "noul", instructions: "Does the photo show a damaged item?", needs: "image" },
     },
     sample: "I was charged twice for my order and the parcel never arrived. Refund one of the charges, this is urgent!",
   },

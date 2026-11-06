@@ -36,7 +36,7 @@ models, both running on the user's GPU in the browser through WebGPU:
 | Browser | WebGPU: Safari 26 (iOS, iPadOS, macOS), Chrome or Edge 113+ (desktop, Android 121+), Firefox with WebGPU. HTTPS (or localhost) for the microphone and camera. |
 | GPU memory | About 2.1 GB for both models with speech; 2.5 GB with pictures. Desktop GPUs and Apple-silicon Macs have room; on phones it needs a recent high-memory model (8 GB of RAM is a reasonable bar), and phones with less will likely fail to load. It has been measured on an NVIDIA A40, not yet on phones: test the devices your customers use. |
 | First download | 2.2 GB (both language models, both speech encoders, the voice), and 0.43 GB more for the two image encoders the first time a picture is used. Kept in IndexedDB afterwards; later loads read it from the device. |
-| Speed (NVIDIA A40) | d1's decision 0.6 to 1.3 s; a whole turn with its spoken answer 2.7 to 4 s; in Live the voice starts about 1.6 s after the user lets go. Phones are slower; the page shows real numbers per turn. |
+| Speed (NVIDIA A40) | d1's decision 0.6 to 2.4 s (more with a picture or a long clip); a whole turn with its spoken answer 2.7 to 5.2 s; in Live the voice starts about 1.6 s after the user lets go. Phones are slower; the page shows real numbers per turn. |
 
 Have a fallback for devices without WebGPU or without the memory (a plain form, or your server's own pipeline).
 `initDevice()` throws when WebGPU is missing; a load that runs out of memory throws an error whose message mentions
@@ -138,8 +138,8 @@ A profile is `{ system, questions }` (see `public/engine/profiles.js`, "Trades d
 - `score` levels go lowest first: `["Routine", "This week", "Today", "Emergency"]`. The answer is the median level;
   `probabilities` gives the full spread.
 - `noul` for yes/no flags: `hazard`, `needs_visit`, `damage_shown`. Ask about one thing per question.
-- Questions about a picture only mean something when there is one; ask "Does a photo show ...?" so d1 answers no
-  when there is none.
+- Questions about a picture only mean something when there is one. Mark them `needs: "image"`: they are asked only
+  on turns with a picture, and are missing from `answers` otherwise (without a picture d1 answers them near 0.5).
 - The ported types are `noul`, `choice` and `score`. The release's `number`, `date` and box types are not ported
   yet (they throw).
 
@@ -158,6 +158,20 @@ A profile is `{ system, questions }` (see `public/engine/profiles.js`, "Trades d
   confirm. Log the probabilities with the ticket so you can tune these later.
 - Safety-critical calls (a gas smell, electrical danger) should still reach a human and your normal emergency
   guidance. d1 is a 2B model; it is good at routing, not a guarantee.
+- Escalate on the flag, not on the level: in the test below a gas smell got `hazard` 0.94 but `urgency` "Today",
+  not "Emergency". And show your own safety text when `hazard` is yes: the voice gave the safety step for the gas
+  smell but skipped it for a flooding leak (it went straight to booking).
+
+**What the Trades dispatch profile did** (NVIDIA A40, `tools/node_desk_api_test.mjs`, greedy, results/desk):
+
+| Turn | d1's decision | Spoken answer (start) |
+| --- | --- | --- |
+| Typed: water pouring from under the sink, spreading | plumbing, repair, Today, hazard 0.83, needs visit 0.74, Frustrated | "I'm prioritising your plumbing job today. I can book a visit ... address" |
+| Typed: strong smell of gas near the boiler | hvac, repair, Today, hazard 0.94 | "... shut off the gas supply to the boiler immediately, and a technician is being sent as an emergency" |
+| Spoken: a quote for two ceiling lights, no rush | electrical, quote, Routine, hazard 0.09, Calm | "... could you tell me the size of the room and the type of lights" |
+| Photo of a pipe + typed: drips a little | plumbing, repair, This week, hazard 0.43 | "I'm prioritising the job. Please book a visit ..." |
+
+d1 took 1.2 to 2.4 s per decision and whole turns 3.5 to 5.2 s; loading everything took 70 s from the network.
 
 ## 6. Getting decisions into your backend
 
@@ -169,7 +183,7 @@ onDecision: async (d) => {
   await fetch("/api/intake", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
     trade: a.trade.choice, request: a.request.choice,
     urgency: profile.questions.urgency.criteria[a.urgency.score],
-    hazard: a.hazard.noul, needsVisit: a.needs_visit.noul, damageShown: a.damage_shown.noul,
+    hazard: a.hazard.noul, needsVisit: a.needs_visit.noul, damageShown: a.damage_shown?.noul ?? null,   // photo turns only
     confidence: { trade: a.trade.confidence, urgency: a.urgency.confidence },
     transcript: typedTextOrNull,          // send only what the customer agreed to share
   }) });

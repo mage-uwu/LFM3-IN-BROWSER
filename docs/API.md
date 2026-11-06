@@ -262,7 +262,22 @@ await pair.liveFeed(melStream);              // every ~320 ms while they talk (a
 const r2 = await pair.liveClose(melStream, questions, { onDecision, onText, onAudio });   // after melStream.finish()
 ```
 
-The vision encoders may be set later (`pair.vision`, `pair.d1Vision`), when a picture is first needed.
+The vision encoders may be set later (`pair.vision`, `pair.d1Vision`), when a picture is first needed. A question
+with `needs: "image"` is asked only on turns that have a picture.
+
+The loader does all of this in one call, and `profiles.js` has ready-made question sets with their instructions
+("Live helper", "Trades dispatch", "Customer line", "Personal assistant", "Language tutor"):
+
+```js
+import { loadPair, PROFILES } from "./engine/index.js";
+const p = PROFILES["Trades dispatch"];
+const desk = await loadPair({ system: p.system, onProgress: ({ got, total, label }) => {} });   // about 2.1 GB
+await desk.loadPictures();                    // the image encoders, before the first picture (0.4 GB)
+const r = await desk.pair.turn({ text }, p.questions, { onDecision, onText, onAudio });
+```
+
+[`public/examples/voice-desk.html`](../public/examples/voice-desk.html) is a complete page built on it, and
+[VOICE_DESK_HANDOFF.md](VOICE_DESK_HANDOFF.md) is the guide for putting it in another app.
 
 Options: `withNote: false` answers without the decision (a comparison), `note` gives a note of your own, `state` adds
 text or JSON for d1 to read beside the clip, `greedy` for repeatable tests. `makePlayer()` in `play.js` plays the

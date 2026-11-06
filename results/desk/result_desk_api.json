@@ -1,0 +1,80 @@
+{
+ "base": "https://lfm.toasterclub.com/",
+ "profile": "Trades dispatch",
+ "load_s": 69.9,
+ "adapter": {
+  "vendor": "nvidia",
+  "architecture": "ampere",
+  "description": "NVIDIA: 595.91.07 595.91.7.0",
+  "maxStorageBufferBindingSize": 1073741824,
+  "maxBufferSize": 1073741824
+ },
+ "turns": [
+  {
+   "label": "typed: a leak",
+   "decision": {
+    "trade": "plumbing",
+    "request": "repair",
+    "urgency": "Today",
+    "hazard": 0.828,
+    "needs_visit": 0.736,
+    "damage_shown": 0.483,
+    "mood": "Frustrated"
+   },
+   "reply": "I'm prioritising your plumbing job today. I can book a visit for you—just let me know the address.",
+   "decide_ms": 1400,
+   "total_ms": 3524,
+   "speech_s": 7.7
+  },
+  {
+   "label": "typed: a gas smell",
+   "decision": {
+    "trade": "hvac",
+    "request": "repair",
+    "urgency": "Today",
+    "hazard": 0.943,
+    "needs_visit": 0.797,
+    "damage_shown": 0.089,
+    "mood": "Frustrated"
+   },
+   "reply": "I'm prioritising the job right now. Please shut off the gas supply to the boiler immediately, and a technician is being sent as an emergency. A visit can be booked once you provide the address.",
+   "decide_ms": 1206,
+   "total_ms": 4509,
+   "speech_s": 12.7
+  },
+  {
+   "label": "spoken: a quote",
+   "decision": {
+    "trade": "electrical",
+    "request": "quote",
+    "urgency": "Routine",
+    "hazard": 0.089,
+    "needs_visit": 0.188,
+    "damage_shown": 0.119,
+    "mood": "Calm"
+   },
+   "reply": "To get a quote for the ceiling lights, could you tell me the size of the room and the type of lights you want?",
+   "decide_ms": 1644,
+   "total_ms": 3779,
+   "speech_s": 6.6
+  },
+  {
+   "label": "photo + typed",
+   "decision": {
+    "trade": "plumbing",
+    "request": "repair",
+    "urgency": "This week",
+    "hazard": 0.432,
+    "needs_visit": 0.449,
+    "damage_shown": 0.493,
+    "mood": "Frustrated"
+   },
+   "reply": "I’m prioritising the job. Please book a visit and let me know the address.",
+   "decide_ms": 2431,
+   "total_ms": 5192,
+   "speech_s": 6.2
+  }
+ ],
+ "spoken_heard": "I'd like a quote to put two new ceiling lights in my living room. There's no rush.",
+ "gpu_errors": 0
+}

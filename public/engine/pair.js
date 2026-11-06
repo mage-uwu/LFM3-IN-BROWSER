@@ -86,11 +86,13 @@ export class Pair {
     this.joined.set(side, out);
     return out;
   }
-  // d1's decision on a turn: the text is its state; the picture and the clip are its media
+  // d1's decision on a turn: the text is its state; the picture and the clip are its media. A question marked
+  // needs: "image" is only asked when the turn has a picture (without one its answer means nothing).
   async decide({ text = null, pp = null, lm = null, state = null }, questions) {
+    const asked = Object.fromEntries(Object.entries(questions).filter(([, q]) => q.needs !== "image" || pp));
     const m = await this.encode("d1", pp, lm);
     const st = state ?? (text && text.trim() ? text.trim() : null);
-    return this.decider.ask(st, questions, { media: m.items.length ? { items: m.items, emb: m.emb } : null });
+    return this.decider.ask(st, asked, { media: m.items.length ? { items: m.items, emb: m.emb } : null });
   }
   static picture(image, maxPixels) { // { rgba, w, h } -> the encoders' patches
     return image ? preprocess(image.rgba, image.w, image.h, maxPixels ? { maxPixels } : {}) : null;

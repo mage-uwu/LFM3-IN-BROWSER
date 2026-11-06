@@ -22,6 +22,7 @@ affiliated with Liquid AI.
 | Using the app, installing it, privacy, troubleshooting | [USER.md](USER.md) |
 | AI coding agents: setup, repo map, rules, checks | [AGENTS.md](AGENTS.md) |
 | Using the engine in your own page | [docs/API.md](docs/API.md) and [`public/examples/chat.html`](public/examples/chat.html) |
+| Putting Voice Desk (decision + spoken answer) in your app | [docs/VOICE_DESK_HANDOFF.md](docs/VOICE_DESK_HANDOFF.md) and [`public/examples/voice-desk.html`](public/examples/voice-desk.html) |
 | How it works; the weights; how it was tested | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/WEIGHTS.md](docs/WEIGHTS.md), [docs/TESTING.md](docs/TESTING.md) |
 
 ## What it does
@@ -167,12 +168,14 @@ public/              the site: deploy this folder
   decide.html decide.js  Decide: the d1-Omni-2B decision model
   voice.html voice.js    Voice Desk: d1 decides on a spoken message, LFM3 answers aloud
   engine/              the engine: WebGPU + WGSL, plain ES modules (docs/API.md)
-    loader.js            the happy path: loadLFM3(), loadVision(), loadAudio(), loadSpeech()
+    loader.js            the happy path: loadLFM3(), loadVision(), loadAudio(), loadSpeech(), loadPair()
     d1.js                the d1 decision models: Decider.ask(state, questions)
-    pair.js              both models on one spoken turn: Pair.turn(samples, questions)
+    pair.js              both models on one turn: Pair.turn({ text, image, samples }, questions)
+    profiles.js          ready-made Voice Desk profiles (questions + instructions), e.g. Trades dispatch
     play.js              playing a spoken reply as it is made
     index.js             the whole engine in one import
   examples/chat.html   a minimal page that uses the engine
+  examples/voice-desk.html  a minimal Voice Desk page (one loadPair() call)
   weights.js           the weight sets' tensor lists and part URLs (d1-weights.js: Decide's)
   d1/calibration.json  d1-Omni-2B's calibration, from the release
   weights/<set-id>/    the model's weights as PNG parts, with chunks.json (sha256 of every part)
