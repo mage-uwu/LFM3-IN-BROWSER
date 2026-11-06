@@ -26,7 +26,7 @@ let gpu = null, pair = null, player = null, busy = false, rec = null, stop = fal
 // ---- profiles: d1's questions and the voice's instructions -------------------------------------------------------
 const PROFILES = {
   "Customer line": {
-    system: "You are the voice of a shop's customer line. Keep answers to two or three short spoken sentences.",
+    system: "You are the voice of a shop's customer line. Keep answers to two or three short spoken sentences. Act on the notes: if escalate is yes, tell the caller you are passing them to a human agent now; if urgent is yes, say you are treating it as a priority; if the mood is Upset, apologize first.",
     questions: {
       intent: { type: "choice", instructions: "What does the speaker want?", criteria: { refund: "Money back for a charge", order_status: "Where an order is", question: "An answer to a question", complaint: "To report a problem", smalltalk: "Just chatting" } },
       urgent: { type: "noul", instructions: "Does the speaker say it is urgent?" },
@@ -36,7 +36,7 @@ const PROFILES = {
     sample: "I was charged twice for my order and the parcel never arrived. Refund one of the charges, this is urgent!",
   },
   "Personal assistant": {
-    system: "You are a warm personal assistant who talks. Keep answers short and natural, like speech.",
+    system: "You are a warm personal assistant who talks. Keep answers short and natural, like speech. Act on the notes: if details is yes, ask for the one thing you most need before helping; if the mood is Stressed, be brief and reassuring.",
     questions: {
       intent: { type: "choice", instructions: "What does the speaker want?", criteria: { question: "An answer", task: "Something done", plan: "Help planning", chat: "Just talking" } },
       details: { type: "noul", instructions: "Is something important missing from the request?" },

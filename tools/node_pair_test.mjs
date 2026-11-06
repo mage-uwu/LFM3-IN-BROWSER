@@ -87,7 +87,7 @@ for (const line of MESSAGES) {
   const row = { line, heard: clip.heard, seconds: +(clip.samples.length / 16000).toFixed(2) };
   console.log("SAID", JSON.stringify(row));
   for (const withNote of [true, false]) {
-    await pair.newChat("You are the voice of a shop's customer line. Keep answers to two short sentences.");
+    await pair.newChat("You are the voice of a shop's customer line. Keep answers to two or three short spoken sentences. Act on the notes: if escalate is yes, tell the caller you are passing them to a human agent now; if urgent is yes, say you are treating it as a priority; if the mood is Upset, apologize first.");
     const t = performance.now();
     const r = await pair.turn(clip.samples, QUESTIONS, { greedy: true, withNote, maxFrames: 400 });
     const key = withNote ? "with_note" : "without_note";
