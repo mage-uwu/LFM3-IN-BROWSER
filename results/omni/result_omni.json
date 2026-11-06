@@ -1,0 +1,93 @@
+{
+ "adapter": {
+  "vendor": "nvidia",
+  "architecture": "ampere",
+  "description": "NVIDIA: 595.91.07 595.91.7.0",
+  "maxStorageBufferBindingSize": 1073741824,
+  "maxBufferSize": 1073741824
+ },
+ "sets": {
+  "LFM3_WEIGHTS": "gptq-522fbf23560c",
+  "D1_WEIGHTS": "d1lm-690d3ec7d439",
+  "LFM3_AUDIO": "audio-1e6edcd9339f",
+  "D1_AUDIO": "d1audio-b1fda07f6a6d",
+  "LFM3_VISION": "vision-df571b74252a",
+  "D1_VISION": "d1vision-107aefab2585",
+  "LFM3_TALK": "talk-6d397a45176c",
+  "LFM3_CODEC": "codec-b3eb35fe8be9"
+ },
+ "load_s": 76.2,
+ "turns": {
+  "text": {
+   "decision": {
+    "intent": "refund",
+    "urgent": 0.941,
+    "mood": 2,
+    "escalate": 0.919
+   },
+   "d1_tokens": 166,
+   "note": "[Notes from the decision model on this message: intent: refund (89%); urgent: yes (94%); mood: Upset (level 2 of 2); escalate: yes (92%).]",
+   "reply": "I understand this is urgent and I’m treating it as a priority. I’m passing this to a human agent now to resolve the double charge and missing parcel. They’ll work on refunding one charge right away.",
+   "image_rows": 0,
+   "decide_ms": 647,
+   "total_ms": 4068,
+   "speech_s": 12.8
+  },
+  "photo+text": {
+   "decision": {
+    "intent": "question",
+    "about_view": 0.856,
+    "seen": "shape"
+   },
+   "d1_tokens": 218,
+   "note": "[Notes from the decision model on this message: intent: question (78%); about view: yes (86%); seen: shape (88%).]",
+   "reply": "This is the flag of Japan, a solid red circle on a light gray background.",
+   "image_rows": 100,
+   "decide_ms": 1174,
+   "total_ms": 3311,
+   "speech_s": 6
+  },
+  "frame+speech whole": {
+   "decision": {
+    "intent": "question",
+    "about_view": 0.935,
+    "seen": "shape"
+   },
+   "d1_tokens": 251,
+   "note": "[Notes from the decision model on this message: intent: question (88%); about view: yes (94%); seen: shape (89%).]",
+   "reply": "The thing in front of you is red.",
+   "image_rows": 100,
+   "decide_ms": 1245,
+   "total_ms": 2747,
+   "speech_s": 2.9
+  },
+  "frame+speech live": {
+   "decision": {
+    "intent": "question",
+    "about_view": 0.935,
+    "seen": "shape"
+   },
+   "d1_tokens": 251,
+   "note": "[Notes from the decision model on this message: intent: question (90%); about view: yes (94%); seen: shape (89%).]",
+   "reply": "The thing in front of you is red.",
+   "image_rows": 100,
+   "streamed": 38,
+   "decide_ms": 1102,
+   "total_ms": 3430,
+   "speech_s": 3
+  }
+ },
+ "spoken": {
+  "heard": "What color is the thing in front of me?",
+  "seconds": 3.36
+ },
+ "live": {
+  "first_audio_ms_after_release": 1624,
+  "streamed_rows": 38,
+  "same_reply": true,
+  "same_text_ids": true,
+  "same_frames": false,
+  "same_decision": true
+ },
+ "gpu_errors": 0
+}

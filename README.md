@@ -44,11 +44,13 @@ affiliated with Liquid AI.
   own page. Give it a message, JSON, a photo or a recording, and named questions: yes or no, one of, any of, or a
   score. Every question is answered at once with calibrated probabilities, in one pass and without generating
   text. Built for phones; the model is 0.93 GB, plus 0.19 GB for photos and 0.06 GB for recordings.
-- **Voice Desk ([voice.html](https://lfm.toasterclub.com/voice.html)).** Both models on one spoken turn. d1-Omni-2B
-  hears what you say and answers a profile's questions (intent, urgency, mood, whether to pass you to a person...);
-  LFM3-Omni-2B hears it too and answers aloud, with that decision written into its turn as a note. Profiles for a
-  customer line, a personal assistant and a language tutor, or your own questions. Both models load at once
-  (about 2.1 GB).
+- **Voice Desk ([voice.html](https://lfm.toasterclub.com/voice.html)).** Both models on every turn, with every input:
+  speech, typed text, a photo, or Live (the camera and your voice). d1-Omni-2B reads the turn first and answers a
+  profile's questions (intent, urgency, mood, what is in view, whether to pass you to a person...); LFM3-Omni-2B
+  takes the same turn and answers aloud, with that decision written into its turn as a note. Spoken turns stream
+  into LFM3 while you talk, and d1 decides at the release, so the voice starts about 1.6 s after you let go.
+  Profiles for a Live helper, a customer line, a personal assistant and a language tutor, or your own questions.
+  Both models load at once (about 2.1 GB, and 0.4 GB more for pictures).
 - **Installable.** Add it to the iPhone home screen. The weights stay in the browser's storage after the first
   load.
 
@@ -135,6 +137,7 @@ through Dawn, Chrome's WebGPU implementation, in Node.js. The raw numbers are in
 | Speech encoder | The log-mel front end matches the reference to 0.00013, and a LibriSpeech clip transcribes word for word. 5.9 s of speech encodes in 30 ms. |
 | Spoken replies | The text matches a deterministic PyTorch run. The 8-bit codec reaches 33.6 dB SNR against PyTorch's audio. 46.5 speech frames per second is 3.7× real time, and the model transcribes our speech back exactly. |
 | d1-Omni-2B (Decide), 4-bit | On the release's own test cases (a support ticket, JSON, a picture, a recording), every answer matches its runner and every probability is within 0.043. GPTQ was worse here (0.085, and it flipped a close call), so d1 ships plain 4-bit rounding. 0.25 to 1 s per case on the A40. The page itself, in Chromium on a 390 x 844 screen, gives the same answers on all five of its examples ([results/decide](results/decide)). |
+| Voice Desk, every input (A40) | A typed complaint, a photo with a typed question, and a camera frame with a spoken question were each decided right and answered aloud in 2.7 to 4.1 s. The same frame and speech streamed in as Live give the same answer token for token as the whole turn, with the first sound 1.6 s after letting go ([results/omni](results/omni)). |
 | Voice Desk (both models, A40) | On two spoken messages in the model's own voice, d1 decided both right (a double charge: refund, urgent 0.95, upset, escalate 0.91; a question about opening hours: question, calm, no escalation). A whole turn, decision and spoken answer, takes 2.6 to 3.6 s. Given a note that contradicts the calm question, the voice follows it ("I'm treating this as a priority"), so the answer acts on d1's decision, not only on what it heard ([results/pair](results/pair)). |
 | Push to talk | A turn streamed in while "speaking" gives exactly the same answer as the whole clip: 24 of 24 text tokens and 89 of 89 speech frames, and the follow-up turn too. The first audio comes 164 ms after letting go, against 389 ms without streaming. |
 

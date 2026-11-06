@@ -242,19 +242,27 @@ const { answers, probabilities, usage } = await d1.ask("I was charged twice. Ple
 
 ## `pair.js`: a decision, then a spoken answer
 
-`Pair` runs one spoken turn through both models. d1-Omni-2B hears the clip through its own speech encoder and answers
-the questions; LFM3-Omni-2B hears the same clip through its encoder and answers aloud, with the decision written into
-its turn as a one-line note (`decisionNote`). `newChat()` puts `NOTES_INSTRUCTION` in the voice's system prompt: use
+`Pair` runs one turn through both models: typed text, a picture, speech, or a picture and speech together. d1-Omni-2B
+reads it through its own encoders (the text becomes its state) and answers the questions; LFM3-Omni-2B takes the same
+turn through its encoders and answers aloud, with the decision written into its turn as a one-line note
+(`decisionNote`). `newChat()` puts `NOTES_INSTRUCTION` in the voice's system prompt: use
 the notes, do not read them out. A profile's own instructions can say what to do with each answer ("if escalate is
 yes, tell the caller you are passing them to a person").
 
 ```js
 import { Pair } from "./engine/pair.js";
-const pair = new Pair({ decider, d1Audio, chat, audio, depth, codec });   // d1Audio, audio: the two speech encoders
+const pair = new Pair({ decider, d1Audio, d1Vision, chat, audio, vision, depth, codec });   // each model's own encoders
 await pair.newChat("You are the voice of a shop's customer line. ...");
-const r = await pair.turn(samples16k, questions, { onDecision: (d, note) => {}, onText, onAudio });
-// r.decision.answers (d1), r.note (what the voice was given), r.reply, r.seconds (of speech), r.decideMs
+const r = await pair.turn({ text, image: { rgba, w, h }, samples: samples16k }, questions, { onDecision: (d, note) => {}, onText, onAudio });
+// any of text, image, samples. r.decision.answers (d1), r.note (what the voice was given), r.reply, r.seconds, r.decideMs
+
+// Live: the frame and the speech go into LFM3 while the user talks; d1 decides at the release
+await pair.liveOpen(frame);                  // { rgba, w, h } or null; read at LIVE_PIXELS (about 320x320)
+await pair.liveFeed(melStream);              // every ~320 ms while they talk (an audio.js MelStream)
+const r2 = await pair.liveClose(melStream, questions, { onDecision, onText, onAudio });   // after melStream.finish()
 ```
+
+The vision encoders may be set later (`pair.vision`, `pair.d1Vision`), when a picture is first needed.
 
 Options: `withNote: false` answers without the decision (a comparison), `note` gives a note of your own, `state` adds
 text or JSON for d1 to read beside the clip, `greedy` for repeatable tests. `makePlayer()` in `play.js` plays the

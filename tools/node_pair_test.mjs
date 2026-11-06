@@ -91,7 +91,7 @@ for (const line of MESSAGES) {
   for (const withNote of [true, false]) {
     await pair.newChat(SYSTEM);
     const t = performance.now();
-    const r = await pair.turn(clip.samples, QUESTIONS, { greedy: true, withNote, maxFrames: 400 });
+    const r = await pair.turn({ samples: clip.samples }, QUESTIONS, { greedy: true, withNote, maxFrames: 400 });
     const key = withNote ? "with_note" : "without_note";
     row[key] = { reply: r.reply, speech_s: +r.seconds.toFixed(1), total_ms: Math.round(performance.now() - t), decide_ms: Math.round(r.decideMs) };
     if (withNote) {
@@ -109,7 +109,7 @@ for (const line of MESSAGES) {
 {
   const note = "[Notes from the decision model on this message: intent: complaint (90%); urgent: yes (95%); mood: Upset (level 2 of 2); escalate: yes (93%).]";
   await pair.newChat(SYSTEM);
-  const r = await pair.turn(clips[1].samples, QUESTIONS, { greedy: true, maxFrames: 400, note });
+  const r = await pair.turn({ samples: clips[1].samples }, QUESTIONS, { greedy: true, maxFrames: 400, note });
   res.counterfactual = { line: MESSAGES[1], note, reply: r.reply };
   console.log("COUNTER", JSON.stringify(res.counterfactual));
 }

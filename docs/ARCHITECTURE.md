@@ -175,8 +175,17 @@ weight list (`d1-weights.js`) and storage families (`d1w/`, `d1v/`, `d1a/`), so 
 
 ## Two models on one turn (`pair.js`, `voice.html`)
 
+Every input goes through both models. Typed text is d1's state and comes before the note in LFM3's turn; a picture is
+preprocessed once and encoded by each model's own image encoder; speech becomes log-mel once and is encoded by each
+model's speech encoder; a picture and speech together are joined into one buffer of rows per model, picture first,
+as the chat places them. A Live turn streams into LFM3 as it is spoken (`Chat.openTurn` with the frame, `feedAudio`
+every 320 ms); at the release d1 decides on the frame and the whole clip, and the note is the text of `closeTurn`, so
+LFM3's prompt is exactly the whole turn's, and with greedy decoding its answer is the same token for token.
+
+
 Voice Desk keeps both language models in the GPU (each 0.93 to 0.97 GB at 4-bit), each with its own speech encoder,
-and LFM3-Omni-2B's speech decoder and codec: about 2.1 GB in all. A spoken message becomes log-mel features once;
+and LFM3-Omni-2B's speech decoder and codec: about 2.1 GB in all, and the two image encoders (0.4 GB) once a picture
+is needed. A spoken message becomes log-mel features once;
 d1's encoder and `Decider.ask` turn them into a decision (about a second on an A40), and LFM3's encoder and
 `Chat.speak` into the spoken answer, with the decision as a note after the audio in the same user turn. The note is
 a plain line of text, so the voice model needs no change: its system prompt says the notes come from a model that

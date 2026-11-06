@@ -56,7 +56,7 @@
   .icon { width: 36px; height: 36px; border-radius: 999px; display: inline-grid; place-items: center; }
   .icon:hover:not(:disabled) { background: var(--soft); }
 
-  main { padding-block: 10px 200px; padding-left: var(--gutter-l); padding-right: var(--gutter-r); }
+  main { padding-block: 10px 170px; padding-left: var(--gutter-l); padding-right: var(--gutter-r); }
   .col { max-width: var(--col); margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
 
   #setup { border: 1px solid var(--line); border-radius: 22px; padding: 22px 20px; display: flex; flex-direction: column; gap: 14px;
@@ -102,16 +102,45 @@
   #hello { text-align: center; color: var(--muted); padding-top: 4vh; }
   #hello h2 { margin: 0 0 8px; font-size: 22px; font-weight: 500; letter-spacing: -0.02em; color: var(--fg); text-wrap: balance; }
 
+  /* Live: the camera under the header */
+  #live { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 56px); z-index: 4; border-radius: 20px; overflow: hidden; background: #0d0e10;
+          aspect-ratio: 4 / 3; max-height: 42vh; width: 100%; }
+  #live video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  #live video.front { transform: scaleX(-1); }
+  #live .lbar { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; gap: 8px; align-items: center; }
+  #live .badge { margin-right: auto; display: inline-flex; gap: 6px; align-items: center; font: 600 12px/1 var(--sans); color: #fff;
+                 background: rgba(0, 0, 0, 0.45); border-radius: 999px; padding: 7px 10px; letter-spacing: 0.04em; text-transform: uppercase; }
+  #live .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--rec); }
+  #live .lbtn { width: 36px; height: 36px; border-radius: 999px; background: rgba(0, 0, 0, 0.45); color: #fff; display: grid; place-items: center; }
+  #live .lhint { position: absolute; left: 10px; right: 10px; bottom: 10px; color: #fff; font-size: 13px; background: rgba(0, 0, 0, 0.45);
+                 border-radius: 12px; padding: 8px 10px; }
+  .you img, .you canvas { display: block; max-width: 160px; border-radius: 12px; margin-bottom: 6px; }
+  .you { flex-direction: column; align-items: flex-end; text-align: right; max-width: 85%; color: var(--fg); }
+  .you small { color: var(--muted); font-size: 12.5px; }
+
   /* the talk bar */
   .bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: linear-gradient(to bottom, rgba(255, 255, 255, 0), var(--bg) 26%);
          padding-top: 26px; padding-bottom: max(16px, env(safe-area-inset-bottom, 0px)); padding-left: var(--gutter-l); padding-right: var(--gutter-r); }
-  .bar .in { max-width: var(--col); margin: 0 auto; display: flex; align-items: center; justify-content: center; gap: 22px; }
-  #talk { width: 76px; height: 76px; border-radius: 999px; background: var(--ink); color: var(--ink-fg); display: grid; place-items: center;
-          box-shadow: 0 6px 24px rgba(17, 18, 20, 0.18); transition: transform 0.15s ease, background 0.2s ease; touch-action: none; }
-  #talk svg { width: 30px; height: 30px; }
+  .bar .in { max-width: var(--col); margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
+  .composer { display: flex; align-items: flex-end; gap: 8px; background: var(--bg); border: 1px solid var(--line); border-radius: 28px; padding: 6px;
+              box-shadow: 0 1px 2px rgba(17, 18, 20, 0.03), 0 10px 30px rgba(17, 18, 20, 0.06); }
+  .composer .side { border: 0; width: 40px; height: 40px; }
+  .composer .side:hover:not(:disabled) { background: var(--soft); }
+  .composer .side.on { background: var(--ink); color: var(--ink-fg); }
+  #input { flex: 1; min-width: 0; border: 0; resize: none; font: 16px/1.4 var(--sans); padding: 9px 4px; max-height: 8.5em; background: transparent; }
+  #input:focus { outline: none; }
+  #talk { width: 44px; height: 44px; flex: none; border-radius: 999px; background: var(--ink); color: var(--ink-fg); display: grid; place-items: center;
+          transition: transform 0.15s ease, background 0.2s ease; touch-action: none; }
+  #talk svg { width: 21px; height: 21px; }
+  #talk .send, #talk .stop { display: none; }
+  #talk.has .mic { display: none; } #talk.has .send { display: block; }
+  #talk.busy .mic, #talk.busy .send { display: none; } #talk.busy .stop { display: block; }
+  .attach { align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--bg); border-radius: 14px; padding: 5px 6px 5px 5px; font-size: 13px; color: var(--muted); }
+  .attach canvas { width: 40px; height: 40px; border-radius: 9px; object-fit: cover; }
+  .attach .x { width: 28px; height: 28px; border-radius: 999px; display: grid; place-items: center; }
   #talk.rec { background: var(--rec); transform: scale(1.08); }
   #talk.busy { background: #5b5e66; }
-  .side { width: 44px; height: 44px; border-radius: 999px; border: 1px solid var(--line); display: grid; place-items: center; background: var(--bg); }
+  .side { width: 44px; height: 44px; border-radius: 999px; border: 1px solid var(--line); display: grid; place-items: center; background: var(--bg); flex: none; }
   #status { text-align: center; font: 12.5px/1.4 var(--mono); color: var(--muted); margin-top: 8px; min-height: 1.4em; }
   input[type=file] { display: none; }
   @media (max-width: 420px) { .flow { grid-template-columns: 1fr; } .flow svg { transform: rotate(90deg); margin: 0 auto; } }
@@ -131,19 +160,19 @@
   <div class="col">
     <div id="setup">
       <h2>Two models, one conversation</h2>
-      <p class="muted">Speak, and two of LiquidAI's models take turns on your device. d1-Omni-2B, the decision model, listens first and decides what you
-        want: your intent, how urgent it is, your mood, whatever the profile asks. LFM3-Omni-2B then hears you too and answers aloud, with that decision
-        in mind. No API is called, and nothing leaves your device.</p>
+      <p class="muted">Talk, type, show a photo, or go Live with the camera, and two of LiquidAI's models take turns on your device. d1-Omni-2B, the
+        decision model, reads it first and decides what you want: your intent, how urgent it is, your mood, what is in view, whatever the profile asks.
+        LFM3-Omni-2B then takes the same message and answers aloud, with that decision in mind. No API is called, and nothing leaves your device.</p>
       <div class="flow">
-        <div><b>You</b>speak</div>
+        <div><b>You</b>talk, type, show</div>
         <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         <div><b>d1</b>decides</div>
         <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         <div><b>LFM3</b>answers aloud</div>
       </div>
-      <p class="muted">Both models load into the GPU at once: about 2.1 GB of 4-bit weights, kept in this browser's storage after the first load (shared
-        with the chat and Decide pages, so anything they already saved is not downloaded again). Needs a GPU with room for both, Safari 26 or another
-        current browser.</p>
+      <p class="muted">Both models load into the GPU at once: about 2.1 GB of 4-bit weights, and 0.4 GB more for pictures the first time you add a photo
+        or open Live. A copy is kept in this browser's storage (shared with the chat and Decide pages, so anything they already saved is not downloaded
+        again). Needs a GPU with room for both, Safari 26 or another current browser.</p>
       <button class="pill" id="loadBtn" disabled>Load both models</button>
       <progress id="prog" value="0" max="1" hidden></progress>
       <div id="loadMsg"></div>
@@ -164,24 +193,41 @@
       <div style="display:flex;gap:8px;margin-top:8px;align-items:center"><button class="chip" id="applyQ">Use these</button><span class="muted" id="qmsg"></span></div>
     </details>
 
+    <div id="live" hidden>
+      <video id="liveVideo" playsinline muted autoplay></video>
+      <div class="lbar"><span class="badge"><span class="dot"></span>Live</span>
+        <button class="lbtn" id="flipBtn" aria-label="Switch camera" title="Switch camera"><svg viewBox="0 0 24 24"><path d="M20 7h-3l-2-3H9L7 7H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1z"/><path d="M9 13a3 3 0 0 1 5.2-2M15 13a3 3 0 0 1-5.2 2"/></svg></button>
+        <button class="lbtn" id="liveClose" aria-label="End Live" title="End Live"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+      <div class="lhint">Tap the mic and talk about what the camera sees. The frame from when you start goes in with your words.</div>
+    </div>
     <div id="hello" hidden>
-      <h2>Tap the button and speak</h2>
-      <p class="muted">Tap again when you are done. Or try a sample message, spoken by the model's own voice.</p>
+      <h2>Talk, type, or show it something</h2>
+      <p class="muted">Tap the mic, speak, and tap again. Type a message, add a photo, or tap the camera to go Live. The star tries a sample message
+        spoken by the model's own voice.</p>
     </div>
     <div id="turns"></div>
   </div>
 </main>
 <div class="bar">
   <div class="in">
-    <button class="side" id="fileBtn" aria-label="Use an audio file" title="Use an audio file" disabled>
-      <svg viewBox="0 0 24 24"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg></button>
-    <button id="talk" aria-label="Talk" disabled>
-      <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
-    <button class="side" id="sampleBtn" aria-label="Try a sample message" title="Try a sample message" disabled>
-      <svg viewBox="0 0 24 24"><path d="M12 3l2.6 5.6 6.1.7-4.5 4.1 1.2 6-5.4-3-5.4 3 1.2-6L3.3 9.3l6.1-.7z"/></svg></button>
+    <div class="attach" id="attach" hidden><canvas id="attachPic" width="40" height="40"></canvas><span id="attachName">Photo</span>
+      <button class="x" id="attachDrop" aria-label="Remove the photo"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div class="composer">
+      <button class="side" id="plusBtn" aria-label="Add a photo or an audio file" title="Add a photo or an audio file" disabled>
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+      <textarea id="input" rows="1" placeholder="Load the models to start" disabled></textarea>
+      <button class="side" id="liveBtn" aria-label="Live: camera and voice" title="Live: camera and voice" disabled>
+        <svg viewBox="0 0 24 24"><path d="M15 10l5-3v10l-5-3z"/><rect x="3" y="6" width="12" height="12" rx="2.5"/></svg></button>
+      <button class="side" id="sampleBtn" aria-label="Try a sample message" title="Try a sample message" disabled>
+        <svg viewBox="0 0 24 24"><path d="M12 3l2.6 5.6 6.1.7-4.5 4.1 1.2 6-5.4-3-5.4 3 1.2-6L3.3 9.3l6.1-.7z"/></svg></button>
+      <button id="talk" aria-label="Talk" disabled>
+        <svg class="mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+        <svg class="send" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+        <svg class="stop" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/></svg></button>
+    </div>
   </div>
   <div id="status"></div>
-  <input type="file" id="file" accept="audio/*">
+  <input type="file" id="file" accept="image/*,audio/*">
 </div>
 <script src="./weights.js"></script>
 <script src="./d1-weights.js"></script>
