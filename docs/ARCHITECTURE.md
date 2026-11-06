@@ -173,6 +173,17 @@ The site ships d1's language model as round-to-nearest 4-bit with a clip search 
 on d1's test cases it stays closer to the bf16 runner than GPTQ does. `decide.html` is a separate page with its own
 weight list (`d1-weights.js`) and storage families (`d1w/`, `d1v/`, `d1a/`), so it does not touch the chat's copy.
 
+## Two models on one turn (`pair.js`, `voice.html`)
+
+Voice Desk keeps both language models in the GPU (each 0.93 to 0.97 GB at 4-bit), each with its own speech encoder,
+and LFM3-Omni-2B's speech decoder and codec: about 2.1 GB in all. A spoken message becomes log-mel features once;
+d1's encoder and `Decider.ask` turn them into a decision (about a second on an A40), and LFM3's encoder and
+`Chat.speak` into the spoken answer, with the decision as a note after the audio in the same user turn. The note is
+a plain line of text, so the voice model needs no change: its system prompt says the notes come from a model that
+heard the message first, and the profile says how to act on them. The page stores each set under the same family as
+the page that uses it alone (`w/ a/ s/ c/` for the chat's, `d1w/ d1a/` for Decide's), so either page's saved copy
+counts.
+
 ## The app (`app.js`, `index.html`)
 
 The app is one page. Its parts:

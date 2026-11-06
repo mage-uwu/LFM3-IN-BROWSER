@@ -240,6 +240,26 @@ const { answers, probabilities, usage } = await d1.ask("I was charged twice. Ple
 - Lower level: `LFM3.decide(ids, { state, groups, slots })` runs a packed sequence under d1's "set" attention (the
   state sees every token, each question sees the state and itself) and returns the logits at `slots`.
 
+## `pair.js`: a decision, then a spoken answer
+
+`Pair` runs one spoken turn through both models. d1-Omni-2B hears the clip through its own speech encoder and answers
+the questions; LFM3-Omni-2B hears the same clip through its encoder and answers aloud, with the decision written into
+its turn as a one-line note (`decisionNote`). `newChat()` puts `NOTES_INSTRUCTION` in the voice's system prompt: use
+the notes, do not read them out. A profile's own instructions can say what to do with each answer ("if escalate is
+yes, tell the caller you are passing them to a person").
+
+```js
+import { Pair } from "./engine/pair.js";
+const pair = new Pair({ decider, d1Audio, chat, audio, depth, codec });   // d1Audio, audio: the two speech encoders
+await pair.newChat("You are the voice of a shop's customer line. ...");
+const r = await pair.turn(samples16k, questions, { onDecision: (d, note) => {}, onText, onAudio });
+// r.decision.answers (d1), r.note (what the voice was given), r.reply, r.seconds (of speech), r.decideMs
+```
+
+Options: `withNote: false` answers without the decision (a comparison), `note` gives a note of your own, `state` adds
+text or JSON for d1 to read beside the clip, `greedy` for repeatable tests. `makePlayer()` in `play.js` plays the
+reply's 24 kHz chunks as they come.
+
 ## Other modules
 
 | Module | Exports |
@@ -247,6 +267,8 @@ const { answers, probabilities, usage } = await d1.ask("I was charged twice. Ple
 | `kernels.js` | The WGSL sources: `gemvSource(quant)`, `embedSource`, the norms, attention, RoPE, arg-max, and on-GPU quantization (`quantizeSource`, `BF16_TO_F32`). |
 | `pngbytes.js` | `pngPayload(bytes, n)`, and `prefetched(chunks, loadOne, { ahead })`. |
 | `store.js` | `store` (IndexedDB key-value: `get`, `put`, `del`, `keys`, `delWhere`), `persist()`, `room()`. |
+| `pair.js` | `Pair`, `decisionNote(questions, answers)`, `NOTES_INSTRUCTION`. |
+| `play.js` | `makePlayer()`: `begin`, `play(chunk)`, `end`, `stop`, `left`. |
 | `d1.js` | `Decider`, and `asQuestion`, `stateBlock`, `plain`, `through` (the prompt and calibration helpers). |
 | `loader.js` | `loadLFM3`, `loadVision`, `loadAudio`, `loadSpeech`, `weightSet`, `cachedTokenizer`, `ensureWeights`, `fetchBytes`. |
 | `index.js` | Re-exports the public API of every module above. |

@@ -54,6 +54,11 @@ answer out loud, entirely on your own device. It is a reference implementation b
   first). **Decide** answers them all at once, with a bar for each option's probability. **Try one** fills in an
   example. It downloads its own 0.93 GB model the first time (plus 0.19 GB for photos and 0.06 GB for recordings)
   and keeps a copy, separate from the chat's; **Storage and about** removes it.
+- **Voice Desk** ([voice.html](https://lfm.toasterclub.com/voice.html)): both models at once. Tap the round button,
+  speak, and tap again. d1 decides first (its card shows each answer), then LFM3-Omni-2B answers aloud with that
+  decision in mind. Pick a **Profile** (customer line, personal assistant, language tutor) or edit the questions and
+  the voice's instructions yourself. The star button tries a sample message spoken by the model's own voice. It
+  needs room on the GPU for both models (about 2.1 GB); phones with less may not load it.
 
 ## Privacy
 

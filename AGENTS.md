@@ -55,6 +55,7 @@ Run these from the repository root. They need Node 18+ and Python 3.10+.
 public/                  the site (deploy this folder)
   index.html, app.js       the full app: chat, push to talk, Live, photos, documents, spoken replies, settings
   decide.html, decide.js   Decide: LiquidAI's d1-Omni-2B decision model, its own page, weights and storage
+  voice.html, voice.js     Voice Desk: d1 decides on a spoken message, LFM3 answers aloud with the decision
   smoke.js                 Settings' smoke test: every workflow once, checked and measured (window.LFM3_SMOKE)
   engine/                  the engine: plain ES modules, WebGPU + WGSL, no dependencies
     index.js                 one import for everything below
@@ -62,6 +63,7 @@ public/                  the site (deploy this folder)
     lfm3.js, kernels.js      the language model and the shared WGSL kernels
     chat.js, tokenizer.js    chat template, spoken turns, ASR; the tokenizer
     d1.js                    the d1 decision models: prompt, set attention (LFM3.decide), readout, calibration
+    pair.js, play.js         both models on one spoken turn; playing a spoken reply as it streams
     rag.js                   retrieval for one chat: its documents and older turns, BM25
     vision.js                image preprocessing + encoder;   audio.js  log-mel + speech encoder (+ streaming)
     speech.js                spoken replies: depth decoder + voice codec;   listen.js  microphone + resampler

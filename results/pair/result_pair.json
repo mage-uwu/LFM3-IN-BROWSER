@@ -1,0 +1,76 @@
+{
+ "adapter": {
+  "vendor": "nvidia",
+  "architecture": "ampere",
+  "description": "NVIDIA: 595.91.07 595.91.7.0",
+  "maxStorageBufferBindingSize": 1073741824,
+  "maxBufferSize": 1073741824
+ },
+ "sets": {
+  "LFM3_WEIGHTS": "gptq-522fbf23560c",
+  "D1_WEIGHTS": "d1lm-690d3ec7d439",
+  "LFM3_AUDIO": "audio-1e6edcd9339f",
+  "D1_AUDIO": "d1audio-b1fda07f6a6d",
+  "LFM3_TALK": "talk-6d397a45176c",
+  "LFM3_CODEC": "codec-b3eb35fe8be9"
+ },
+ "load_s": 59.5,
+ "cases": [
+  {
+   "line": "I was charged twice for my order and the parcel never arrived. Refund one of the charges, this is urgent!",
+   "heard": "I was charged twice for my order and the parcel never arrived. Refund one of the charges. This is urgent.",
+   "seconds": 8.96,
+   "with_note": {
+    "reply": "I’m sorry you’re dealing with this. I’m passing you to a human agent now to handle your refund request.",
+    "speech_s": 7.4,
+    "total_ms": 3622,
+    "decide_ms": 1290
+   },
+   "note": "[Notes from the decision model on this message: intent: refund (77%); urgent: yes (95%); mood: Upset (level 2 of 2); escalate: yes (91%).]",
+   "decision": {
+    "intent": "refund",
+    "urgent": 0.946,
+    "mood": 2,
+    "escalate": 0.909
+   },
+   "d1_tokens": 246,
+   "without_note": {
+    "reply": "I’m treating this as urgent. I’m passing you to a human agent now.",
+    "speech_s": 5.1,
+    "total_ms": 2998,
+    "decide_ms": 1387
+   }
+  },
+  {
+   "line": "Hi there, I was just wondering what time your shop opens on Sundays.",
+   "heard": "Hi there. I was just wondering what time your shop opens on Sundays.",
+   "seconds": 5.04,
+   "with_note": {
+    "reply": "Our shop opens at ten a.m. on Sundays. Is that time convenient for you?",
+    "speech_s": 6.2,
+    "total_ms": 2641,
+    "decide_ms": 853
+   },
+   "note": "[Notes from the decision model on this message: intent: question (87%); urgent: no (94%); mood: Calm (level 0 of 2); escalate: no (93%).]",
+   "decision": {
+    "intent": "question",
+    "urgent": 0.06,
+    "mood": 0,
+    "escalate": 0.075
+   },
+   "d1_tokens": 197,
+   "without_note": {
+    "reply": "Our shop opens at ten a.m. on Sundays. Is that the time you were expecting?",
+    "speech_s": 6.2,
+    "total_ms": 2618,
+    "decide_ms": 855
+   }
+  }
+ ],
+ "counterfactual": {
+  "line": "Hi there, I was just wondering what time your shop opens on Sundays.",
+  "note": "[Notes from the decision model on this message: intent: complaint (90%); urgent: yes (95%); mood: Upset (level 2 of 2); escalate: yes (93%).]",
+  "reply": "I'm treating this as a priority. Our shop opens at ten AM on Sundays."
+ },
+ "gpu_errors": 0
+}
