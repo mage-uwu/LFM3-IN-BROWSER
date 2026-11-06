@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Voice Desk</title>
+<meta name="description" content="Two of LiquidAI's models on your own GPU: d1-Omni-2B hears what you say and decides, then LFM3-Omni-2B answers aloud knowing the decision. Nothing leaves the device. Implementation by Mage / Toaster Club LLC.">
+<meta name="author" content="Mage / Toaster Club LLC">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Voice Desk: d1-Omni-2B decides, LFM3-Omni-2B answers aloud">
+<meta property="og:description" content="Speak; a decision model reads what you want, and a voice model answers with that decision in mind. All on your device.">
+<meta property="og:url" content="https://lfm.toasterclub.com/voice.html">
+<meta property="og:image" content="https://lfm.toasterclub.com/og.png">
+<link rel="icon" href="./icon-180.png">
+<link rel="apple-touch-icon" href="./icon-180.png">
+<meta name="theme-color" content="#ffffff">
+<style>
+  /* The site's quiet white look. One column: the turns, each a spoken message, d1's decision card and LFM3's
+     spoken answer; a large round button at the bottom to talk. Built for a phone first. */
+  :root {
+    color-scheme: light;
+    --bg: #ffffff; --fg: #111214; --muted: #74777f; --faint: #a3a6ad; --line: #ececee; --soft: #f4f4f5;
+    --ink: #111214; --ink-fg: #ffffff; --accent: #2f6bff; --warn: #b4441c; --ok: #1d8a4e; --bar: #dfe6ff; --rec: #d9442b;
+    --sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --gutter-l: max(16px, env(safe-area-inset-left, 0px));
+    --gutter-r: max(16px, env(safe-area-inset-right, 0px));
+    --col: 38rem;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.55 var(--sans); -webkit-font-smoothing: antialiased; }
+  svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  button { font: 500 15px/1.2 var(--sans); color: var(--fg); background: transparent; border: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  button:disabled { opacity: 0.35; cursor: default; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  select, textarea { font: 15px/1.45 var(--sans); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 9px 12px; width: 100%; min-width: 0; }
+  textarea { font: 13px/1.5 var(--mono); resize: vertical; }
+  select { appearance: none; -webkit-appearance: none; border-radius: 999px; padding-right: 34px;
+           background: var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2374777f' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 13px center; }
+  .pill { border-radius: 999px; padding: 11px 20px; background: var(--ink); color: var(--ink-fg); }
+  .chip { border: 1px solid var(--line); border-radius: 999px; padding: 7px 13px; font-size: 14px; color: var(--muted); display: inline-flex; gap: 7px; align-items: center; }
+  .chip:hover:not(:disabled) { background: var(--soft); }
+  .muted { color: var(--muted); font-size: 14.5px; margin: 0; }
+  .err { color: var(--warn); }
+
+  header { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); display: flex; align-items: center; gap: 8px;
+           padding-block: 10px 8px; padding-left: var(--gutter-l); padding-right: var(--gutter-r); }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+  .brand { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; line-height: 1.2; }
+  .brand h1 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase; }
+  .tags { display: flex; gap: 5px; min-width: 0; }
+  .tag { font: 500 11px/1 var(--mono); color: var(--muted); background: var(--soft); border-radius: 999px; padding: 4px 8px 3.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .tag.flat { flex: none; }
+  .navlink { font-size: 14px; color: var(--muted); text-decoration: none; border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; white-space: nowrap; }
+  .icon { width: 36px; height: 36px; border-radius: 999px; display: inline-grid; place-items: center; }
+  .icon:hover:not(:disabled) { background: var(--soft); }
+
+  main { padding-block: 10px 200px; padding-left: var(--gutter-l); padding-right: var(--gutter-r); }
+  .col { max-width: var(--col); margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+
+  #setup { border: 1px solid var(--line); border-radius: 22px; padding: 22px 20px; display: flex; flex-direction: column; gap: 14px;
+           box-shadow: 0 1px 2px rgba(17, 18, 20, 0.03), 0 10px 30px rgba(17, 18, 20, 0.05); }
+  #setup h2 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; text-wrap: balance; }
+  .flow { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 6px; align-items: center; margin: 2px 0; }
+  .flow div { background: var(--soft); border-radius: 14px; padding: 10px; font-size: 13px; text-align: center; line-height: 1.3; min-width: 0; }
+  .flow b { display: block; font-size: 12px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+  .flow svg { color: var(--faint); width: 16px; height: 16px; }
+  progress { width: 100%; height: 6px; appearance: none; border: 0; border-radius: 999px; background: var(--soft); overflow: hidden; }
+  progress::-webkit-progress-bar { background: var(--soft); }
+  progress::-webkit-progress-value { background: var(--ink); border-radius: 999px; }
+  progress::-moz-progress-bar { background: var(--ink); }
+  #loadMsg { font: 12.5px/1.45 var(--mono); color: var(--muted); min-height: 1em; }
+
+  .profile { display: flex; gap: 8px; align-items: center; }
+  .profile label { font-size: 12.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+  .qlist { display: flex; flex-wrap: wrap; gap: 6px; }
+  .qlist span { font: 12px/1 var(--mono); color: var(--muted); background: var(--soft); border-radius: 999px; padding: 6px 9px; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+
+  /* turns */
+  #turns { display: flex; flex-direction: column; gap: 22px; }
+  .you { align-self: flex-end; background: var(--soft); border-radius: 20px; padding: 9px 15px; font-size: 14px; color: var(--muted);
+         display: inline-flex; gap: 8px; align-items: center; }
+  .turn { display: flex; flex-direction: column; gap: 10px; }
+  .card { border: 1px solid var(--line); border-radius: 18px; padding: 12px 14px; display: flex; flex-direction: column; gap: 7px; }
+  .card .hd { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .card .hd b { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  .card .hd span { font: 11.5px/1 var(--mono); color: var(--faint); }
+  .row { display: grid; grid-template-columns: minmax(0, 6.5rem) minmax(0, 1fr) 4.2rem; gap: 8px; align-items: center; font-size: 13.5px; }
+  .row .k { color: var(--muted); font-family: var(--mono); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row .v { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .row .v span { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row .track { height: 6px; border-radius: 999px; background: var(--soft); overflow: hidden; }
+  .row .fill { height: 100%; border-radius: 999px; background: var(--accent); width: 0; transition: width 0.35s ease; }
+  .row .p { font: 12px/1 var(--mono); color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+  .card.waiting .hd span::after { content: " …"; }
+  .reply { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .reply.waiting { color: var(--faint); }
+  .stats { font: 11px/1.45 var(--mono); color: var(--faint); font-variant-numeric: tabular-nums; }
+  .note { font: 12px/1.45 var(--mono); color: var(--muted); background: var(--soft); border-radius: 10px; padding: 8px 10px; margin-top: 4px; white-space: pre-wrap; }
+  #hello { text-align: center; color: var(--muted); padding-top: 4vh; }
+  #hello h2 { margin: 0 0 8px; font-size: 22px; font-weight: 500; letter-spacing: -0.02em; color: var(--fg); text-wrap: balance; }
+
+  /* the talk bar */
+  .bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: linear-gradient(to bottom, rgba(255, 255, 255, 0), var(--bg) 26%);
+         padding-top: 26px; padding-bottom: max(16px, env(safe-area-inset-bottom, 0px)); padding-left: var(--gutter-l); padding-right: var(--gutter-r); }
+  .bar .in { max-width: var(--col); margin: 0 auto; display: flex; align-items: center; justify-content: center; gap: 22px; }
+  #talk { width: 76px; height: 76px; border-radius: 999px; background: var(--ink); color: var(--ink-fg); display: grid; place-items: center;
+          box-shadow: 0 6px 24px rgba(17, 18, 20, 0.18); transition: transform 0.15s ease, background 0.2s ease; touch-action: none; }
+  #talk svg { width: 30px; height: 30px; }
+  #talk.rec { background: var(--rec); transform: scale(1.08); }
+  #talk.busy { background: #5b5e66; }
+  .side { width: 44px; height: 44px; border-radius: 999px; border: 1px solid var(--line); display: grid; place-items: center; background: var(--bg); }
+  #status { text-align: center; font: 12.5px/1.4 var(--mono); color: var(--muted); margin-top: 8px; min-height: 1.4em; }
+  input[type=file] { display: none; }
+  @media (max-width: 420px) { .flow { grid-template-columns: 1fr; } .flow svg { transform: rotate(90deg); margin: 0 auto; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <h1>Voice Desk</h1>
+    <div class="tags"><span class="tag" id="chip">checking the GPU</span><span class="tag flat">d1 + LFM3 · 4-bit</span></div>
+  </div>
+  <button class="icon" id="newBtn" aria-label="New conversation" title="New conversation" disabled>
+    <svg viewBox="0 0 24 24"><path d="M12 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/><path d="M17.5 3.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
+  <a class="navlink" href="./">Chat</a>
+</header>
+<main>
+  <div class="col">
+    <div id="setup">
+      <h2>Two models, one conversation</h2>
+      <p class="muted">Speak, and two of LiquidAI's models take turns on your device. d1-Omni-2B, the decision model, listens first and decides what you
+        want: your intent, how urgent it is, your mood, whatever the profile asks. LFM3-Omni-2B then hears you too and answers aloud, with that decision
+        in mind. No API is called, and nothing leaves your device.</p>
+      <div class="flow">
+        <div><b>You</b>speak</div>
+        <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        <div><b>d1</b>decides</div>
+        <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        <div><b>LFM3</b>answers aloud</div>
+      </div>
+      <p class="muted">Both models load into the GPU at once: about 2.1 GB of 4-bit weights, kept in this browser's storage after the first load (shared
+        with the chat and Decide pages, so anything they already saved is not downloaded again). Needs a GPU with room for both, Safari 26 or another
+        current browser.</p>
+      <button class="pill" id="loadBtn" disabled>Load both models</button>
+      <progress id="prog" value="0" max="1" hidden></progress>
+      <div id="loadMsg"></div>
+    </div>
+
+    <div class="profile">
+      <label for="profile">Profile</label>
+      <select id="profile"></select>
+    </div>
+    <div class="qlist" id="qlist"></div>
+    <details id="custom">
+      <summary>Edit the questions and the voice's instructions</summary>
+      <p class="muted" style="margin:8px 0">Questions as d1 takes them (JSON): <code>noul</code> for yes or no, <code>choice</code> with
+        <code>criteria</code> (add <code>"multiple": true</code> for any of), <code>score</code> with levels, lowest first.</p>
+      <textarea id="qjson" rows="12" spellcheck="false"></textarea>
+      <p class="muted" style="margin:10px 0 6px">The voice's instructions</p>
+      <textarea id="sys" rows="3" spellcheck="false"></textarea>
+      <div style="display:flex;gap:8px;margin-top:8px;align-items:center"><button class="chip" id="applyQ">Use these</button><span class="muted" id="qmsg"></span></div>
+    </details>
+
+    <div id="hello" hidden>
+      <h2>Tap the button and speak</h2>
+      <p class="muted">Tap again when you are done. Or try a sample message, spoken by the model's own voice.</p>
+    </div>
+    <div id="turns"></div>
+  </div>
+</main>
+<div class="bar">
+  <div class="in">
+    <button class="side" id="fileBtn" aria-label="Use an audio file" title="Use an audio file" disabled>
+      <svg viewBox="0 0 24 24"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg></button>
+    <button id="talk" aria-label="Talk" disabled>
+      <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+    <button class="side" id="sampleBtn" aria-label="Try a sample message" title="Try a sample message" disabled>
+      <svg viewBox="0 0 24 24"><path d="M12 3l2.6 5.6 6.1.7-4.5 4.1 1.2 6-5.4-3-5.4 3 1.2-6L3.3 9.3l6.1-.7z"/></svg></button>
+  </div>
+  <div id="status"></div>
+  <input type="file" id="file" accept="audio/*">
+</div>
+<script src="./weights.js"></script>
+<script src="./d1-weights.js"></script>
+<script type="module" src="./voice.js"></script>
+</body>
+</html>
