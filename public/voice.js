@@ -15,6 +15,7 @@ import { Codec, DepthDecoder } from "./engine/speech.js";
 import { MicCapture, Resampler, resample16k } from "./engine/listen.js";
 import { cachedTokenizer, weightSet } from "./engine/loader.js";
 import { makePlayer } from "./engine/play.js";
+import { PROFILES } from "./engine/profiles.js";   // the ready-made profiles (Live helper, Trades dispatch, ...)
 
 const $ = (id) => document.getElementById(id);
 const G = globalThis;
@@ -27,48 +28,7 @@ const PICTURE_SETS = [["LFM3_VISION", "v/", "LFM3's image encoder"], ["D1_VISION
 const MAX_SECONDS = 30, TICK = 320, MIN_S = 0.35;
 let gpu = null, pair = null, player = null, busy = false, stop = false, photo = null;
 
-// ---- profiles: d1's questions and the voice's instructions -------------------------------------------------------
-const PROFILES = {
-  "Live helper": {
-    system: "You are a helpful assistant who can see through the user's camera and photos. Keep answers to one or two short spoken sentences. Act on the notes: if about_view is yes, answer from what you see; if urgent is yes, put safety first.",
-    questions: {
-      intent: { type: "choice", instructions: "What does the user want?", criteria: { question: "An answer", request: "Something done", chat: "Just talking" } },
-      about_view: { type: "noul", instructions: "Is the user asking about something they can see?" },
-      seen: { type: "choice", instructions: "What is shown?", criteria: { object: "An object or a shape", person: "A person", text: "Writing", scene: "A room or a place", nothing: "No picture" } },
-      urgent: { type: "noul", instructions: "Is it urgent or about safety?" },
-    },
-    sample: "What colour is the thing in front of me?",
-  },
-  "Customer line": {
-    system: "You are the voice of a shop's customer line. Keep answers to two or three short spoken sentences. Act on the notes: if escalate is yes, tell the caller you are passing them to a human agent now; if urgent is yes, say you are treating it as a priority; if the mood is Upset, apologize first.",
-    questions: {
-      intent: { type: "choice", instructions: "What does the customer want?", criteria: { refund: "Money back for a charge", order_status: "Where an order is", question: "An answer to a question", complaint: "To report a problem", smalltalk: "Just chatting" } },
-      urgent: { type: "noul", instructions: "Does the customer say it is urgent?" },
-      mood: { type: "score", instructions: "How upset is the customer?", criteria: ["Calm", "Annoyed", "Upset"] },
-      escalate: { type: "noul", instructions: "Should this go to a human agent?" },
-      damaged: { type: "noul", instructions: "Does a photo show a damaged item?" },
-    },
-    sample: "I was charged twice for my order and the parcel never arrived. Refund one of the charges, this is urgent!",
-  },
-  "Personal assistant": {
-    system: "You are a warm personal assistant who talks. Keep answers short and natural, like speech. Act on the notes: if details is yes, ask for the one thing you most need before helping; if the mood is Stressed, be brief and reassuring.",
-    questions: {
-      intent: { type: "choice", instructions: "What does the user want?", criteria: { question: "An answer", task: "Something done", plan: "Help planning", chat: "Just talking" } },
-      details: { type: "noul", instructions: "Is something important missing from the request?" },
-      mood: { type: "score", instructions: "How is the user feeling?", criteria: ["Relaxed", "Busy", "Stressed"] },
-    },
-    sample: "Can you help me plan dinner for six people tomorrow? One of them is vegetarian and I have no time.",
-  },
-  "Language tutor": {
-    system: "You are a friendly English tutor. Answer what the learner says, and if the notes say they made mistakes, gently show a better way to say it.",
-    questions: {
-      mistakes: { type: "noul", instructions: "Does the user make grammar mistakes?" },
-      level: { type: "score", instructions: "How fluent is the user's English?", criteria: ["Beginner", "Intermediate", "Advanced"] },
-      topic: { type: "choice", instructions: "What is the user talking about?", criteria: { daily_life: null, work: null, travel: null, food: null, other: null } },
-    },
-    sample: "Yesterday I go to the market and I buyed many fruits, but the apples was not so good.",
-  },
-};
+// ---- profiles: d1's questions and the voice's instructions (engine/profiles.js) ------------------------------------
 let profile = "Live helper", { questions, system } = PROFILES[profile];
 
 function showProfile() {

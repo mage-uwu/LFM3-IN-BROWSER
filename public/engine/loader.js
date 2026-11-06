@@ -9,7 +9,7 @@
 // kept in this browser's IndexedDB as it arrives, so the next load reads the device's copy, and an interrupted
 // first load resumes with the parts it already has. The tokenizer is kept beside it. loadVision(), loadAudio()
 // and loadSpeech() load the image model, the speech encoder and the spoken-reply models the same way, each the
-// first time it is needed.
+// first time it is needed. loadPair() loads Voice Desk: LFM3-Omni-2B and d1-Omni-2B together (engine/pair.js).
 
 import { initDevice, LFM3 } from "./lfm3.js";
 import { Chat } from "./chat.js";
@@ -19,6 +19,8 @@ import { Audio } from "./audio.js";
 import { Codec, DepthDecoder } from "./speech.js";
 import { pngPayload, prefetched } from "./pngbytes.js";
 import { persist, room, store } from "./store.js";
+import { Decider } from "./d1.js";
+import { Pair } from "./pair.js";
 
 const siteRoot = () => new URL("./", document.baseURI);
 
@@ -162,4 +164,64 @@ export async function loadSpeech(device, { base = siteRoot(), onProgress } = {})
   const depth = await loadSet(device, globalThis.LFM3_TALK, "s/", DepthDecoder, { base, onProgress });
   const codec = await loadSet(device, globalThis.LFM3_CODEC, "c/", Codec, { base, onProgress });
   return { depth, codec };
+}
+
+// ---- Voice Desk: both models on every turn (pair.js) -------------------------------------------------------------
+// d1-weights.js, the decision model's weight sets (window.D1_WEIGHTS, D1_VISION, D1_AUDIO), if the page did not load
+// it already with <script src="d1-weights.js">
+export async function ensureD1Weights(base = siteRoot()) {
+  if (!globalThis.D1_WEIGHTS) await import(new URL("d1-weights.js", base).href);
+  if (!globalThis.D1_WEIGHTS) throw new Error("d1-weights.js lists no decision model");
+}
+
+// LFM3-Omni-2B and d1-Omni-2B, each with its speech encoder, and LFM3's spoken-reply models: a Pair (engine/pair.js)
+// ready for its first turn, about 2.1 GB on the GPU. Each set goes through this device's copy, under the same storage
+// families as the chat (w/ a/ s/ c/) and Decide (d1w/ d1a/) pages, so either page's saved copy counts.
+//   base: the site's root (weights.js, d1-weights.js, weights/, d1/calibration.json, the tokenizer)
+//   system: the voice's instructions (a profile's system); onProgress({ got, total, label }) in bytes
+//   pictures: true loads both image encoders now (0.4 GB); otherwise call loadPictures() before the first picture
+// Returns { device, info, pair, decider, chat, tokenizer, calibration, fromDevice, loadPictures }.
+export async function loadPair({ base = siteRoot(), ctx = 4096, system = null, onProgress = () => {}, device = null, pictures = false } = {}) {
+  await ensureWeights(base);
+  await ensureD1Weights(base);
+  const G = globalThis;
+  const gpu = device ? { device, info: {} } : await initDevice();
+  const sets = [["LFM3_WEIGHTS", "w/", LFM3, "LFM3-Omni-2B"], ["D1_WEIGHTS", "d1w/", LFM3, "d1-Omni-2B"],
+    ["LFM3_AUDIO", "a/", Audio, "LFM3's speech encoder"], ["D1_AUDIO", "d1a/", Audio, "d1's speech encoder"],
+    ["LFM3_TALK", "s/", DepthDecoder, "the speech decoder"], ["LFM3_CODEC", "c/", Codec, "the voice codec"]];
+  for (const [g] of sets) if (!G[g]) throw new Error(`the site lists no ${g}`);
+  const load = async (list, report) => {
+    const total = list.reduce((s, [g]) => s + G[g].total, 0), out = {};
+    let before = 0, fromDevice = 0, parts = 0;
+    for (const [g, family, Cls, label] of list) {
+      const W = G[g], set = weightSet(W, family, { base }), src = set.source();
+      await set.prepare(src);
+      const m = Cls === LFM3 ? new LFM3(gpu.device, { ctx, prequant: src.prequant }) : new Cls(gpu.device, { quant: W.format, prequant: src.prequant });
+      await m.load((p) => report({ got: before + p.got * (W.total / p.total), total, label }));
+      await set.finish(src);
+      before += W.total; fromDevice += src.fromDevice; parts += set.n;
+      out[g] = m;
+    }
+    out.fromDevice = fromDevice === parts;
+    return out;
+  };
+  const m = await load(sets, onProgress);
+  const tokenizer = await cachedTokenizer(base);
+  const r = await fetch(new URL("d1/calibration.json", base));
+  if (!r.ok) throw new Error(`d1/calibration.json: HTTP ${r.status}`);
+  const calibration = await r.json();
+  const decider = new Decider(m.D1_WEIGHTS, tokenizer, { calibration, setSize: calibration.set_size || 16, lead: "<think></think>" });
+  const chat = new Chat(m.LFM3_WEIGHTS, tokenizer);
+  const pair = new Pair({ decider, d1Audio: m.D1_AUDIO, chat, audio: m.LFM3_AUDIO, depth: m.LFM3_TALK, codec: m.LFM3_CODEC });
+  let loading = null;
+  const loadPictures = (report = onProgress) => { // both image encoders, once
+    if (pair.vision && pair.d1Vision) return Promise.resolve();
+    loading ||= load([["LFM3_VISION", "v/", Vision, "LFM3's image encoder"], ["D1_VISION", "d1v/", Vision, "d1's image encoder"]], report)
+      .then((v) => { pair.vision = v.LFM3_VISION; pair.d1Vision = v.D1_VISION; })
+      .finally(() => { loading = null; });
+    return loading;
+  };
+  if (pictures) await loadPictures();
+  await pair.newChat(system);
+  return { device: gpu.device, info: gpu.info, pair, decider, chat, tokenizer, calibration, fromDevice: m.fromDevice, loadPictures };
 }
